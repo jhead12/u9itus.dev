@@ -706,14 +706,14 @@ jobs:
           # same 150-image budget instead of multiplying it by state count.
           if [ -z "$STATES" ]; then
             php artisan politicians:validate-profile-photos \
-              --quarantine-only \
+              --auto-clear \
               --min-confidence=0.70 \
               --limit=150 \
               ${{ needs.build-args.outputs.dry_arg }}
           else
             for state in $(echo "$STATES" | tr ',' ' '); do
               php artisan politicians:validate-profile-photos \
-                --quarantine-only \
+                --auto-clear \
                 --min-confidence=0.70 \
                 --limit=30 \
                 --state=$state \

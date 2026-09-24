@@ -17,10 +17,6 @@ on:
         description: "Also validate claimed profiles"
         type: boolean
         default: false
-      fix_invalid:
-        description: "Enable auto-clear mode (otherwise quarantine-first only)"
-        type: boolean
-        default: false
       dry_run:
         description: "Report only, no DB writes"
         type: boolean
@@ -55,7 +51,6 @@ jobs:
           STATE="${{ github.event.inputs.state }}"
           LIMIT="${{ github.event.inputs.limit || '800' }}"
           INCLUDE_CLAIMED="${{ github.event.inputs.include_claimed == 'true' && '--include-claimed' || '' }}"
-          AUTO_CLEAR="${{ github.event.inputs.fix_invalid == 'true' && '--auto-clear --fix-invalid' || '' }}"
           DRY="${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}"
           STATE_ARG=""
           if [ -n "$STATE" ]; then
@@ -64,10 +59,9 @@ jobs:
 
           php artisan politicians:validate-profile-photos \
             --require-ai \
-            --quarantine-only \
+            --auto-clear \
             --min-confidence=0.70 \
             --limit="${LIMIT}" \
             ${STATE_ARG} \
             ${INCLUDE_CLAIMED} \
-            ${AUTO_CLEAR} \
             ${DRY}

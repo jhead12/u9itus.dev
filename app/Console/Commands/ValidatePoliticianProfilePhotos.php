@@ -15,8 +15,9 @@ class ValidatePoliticianProfilePhotos extends Command
         {--limit=500           : Max politicians to inspect per run}
         {--include-claimed     : Include claimed profiles (default scans unclaimed only)}
         {--fix-invalid         : Legacy alias. With quarantine flow this only clears when --auto-clear is also set}
-        {--quarantine-only     : Write invalid/unknown records to quarantine queue (default behavior)}
+        {--quarantine-only     : Legacy no-op. Invalid/unknown results are always written to the quarantine queue (except under --dry-run)}
         {--auto-clear          : Clear profile_photo_url when invalid confidence exceeds threshold}
+        {--apply-quarantine    : Clear photos already quarantined at or above --min-confidence, from stored results (no image fetch or AI), and queue the rest for recheck}
         {--dry-run             : Report only, no database writes}
         {--skip-ai             : Use URL heuristics only (no Anthropic call)}
         {--require-ai          : Fail when ANTHROPIC_API_KEY is missing}
@@ -35,7 +36,9 @@ class ValidatePoliticianProfilePhotos extends Command
         $limit = max(1, (int) ($this->option('limit') ?? 500));
         $includeClaimed = (bool) $this->option('include-claimed');
         $fixInvalid = (bool) $this->option('fix-invalid');
-        $quarantineOnly = (bool) $this->option('quarantine-only');
+        // Quarantining used to require --quarantine-only, so manual runs without it
+        // reported invalid photos and then recorded nothing.
+        $quarantine = true;
         $autoClear = (bool) $this->option('auto-clear');
         $dryRun = (bool) $this->option('dry-run');
         $skipAi = (bool) $this->option('skip-ai');
@@ -55,6 +58,10 @@ class ValidatePoliticianProfilePhotos extends Command
 
         if (($autoClear || $fixInvalid) && $dryRun) {
             $this->line('<fg=yellow>[dry-run] clear mode requested; would clear invalid profile_photo_url values when eligible.</>');
+        }
+
+        if ($this->option('apply-quarantine')) {
+            return $this->applyQuarantine($minConfidence, $dryRun, $state, $includeClaimed);
         }
 
         if (! $skipAi && $apiKey === '' && $requireAi) {
@@ -130,7 +137,7 @@ class ValidatePoliticianProfilePhotos extends Command
                 $confidence = number_format((float) ($result['confidence'] ?? 0), 2);
                 $this->line("  <fg=red>✗</> #{$politician->id} {$politician->full_name} ({$confidence}) — {$reason}");
 
-                if (! $dryRun && ($quarantineOnly || $fixInvalid || $autoClear)) {
+                if (! $dryRun && $quarantine) {
                     $this->upsertQuarantine(
                         politician: $politician,
                         photoUrl: $url,
@@ -175,7 +182,7 @@ class ValidatePoliticianProfilePhotos extends Command
             $reason = $result['reason'] ?? 'could not classify';
             $this->line("  <fg=yellow>?</> #{$politician->id} {$politician->full_name} — {$reason}");
 
-            if (! $dryRun && $quarantineOnly) {
+            if (! $dryRun && $quarantine) {
                 $this->upsertQuarantine(
                     politician: $politician,
                     photoUrl: $url,
@@ -187,8 +194,10 @@ class ValidatePoliticianProfilePhotos extends Command
                 );
                 $quarantined++;
 
+                // Not 'quarantined': the check never ran (fetch/AI failure), so
+                // there is no evidence the photo is bad — often it's a real headshot.
                 $politician->update([
-                    'profile_photo_status' => 'quarantined',
+                    'profile_photo_status' => 'needs_review',
                     'profile_photo_validation_confidence' => (float) ($result['confidence'] ?? 0),
                     'profile_photo_last_validated_at' => now(),
                 ]);
@@ -201,6 +210,70 @@ class ValidatePoliticianProfilePhotos extends Command
         if ($failOnInvalid && $invalid > 0) {
             return self::FAILURE;
         }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Acts on photos already flagged 'quarantined' using the stored quarantine
+     * result for their current URL. A confident invalid result clears the photo;
+     * the original URL stays in politician_photo_quarantines so it can be restored.
+     * Anything else (unclassified, low confidence, no stored result) is marked
+     * needs_review and made due for the next validation run.
+     */
+    private function applyQuarantine(float $minConfidence, bool $dryRun, ?string $state, bool $includeClaimed): int
+    {
+        $politicians = Politician::query()
+            ->where('profile_photo_status', 'quarantined')
+            ->whereNotNull('profile_photo_url')
+            ->where('profile_photo_url', '!=', '')
+            ->when(! $includeClaimed, fn ($q) => $q->whereNull('user_id'))
+            ->when($state, fn ($q) => $q->whereRaw("UPPER(COALESCE(state, '')) = ?", [$state]))
+            ->orderBy('id')
+            ->get(['id', 'full_name', 'profile_photo_url']);
+
+        $cleared = 0;
+        $recheck = 0;
+
+        $this->line("Applying quarantine to {$politicians->count()} politician profile photo(s)...\n");
+
+        foreach ($politicians as $politician) {
+            $url = trim((string) $politician->profile_photo_url);
+            $row = PoliticianPhotoQuarantine::query()
+                ->where('politician_id', $politician->id)
+                ->where('photo_url_hash', hash('sha256', strtolower($url)))
+                ->first();
+
+            if ($row && (float) $row->confidence >= $minConfidence) {
+                $cleared++;
+                $this->line("  <fg=red>✗</> #{$politician->id} {$politician->full_name} — cleared ({$row->reason})");
+
+                if (! $dryRun) {
+                    $politician->update([
+                        'profile_photo_url' => null,
+                        'profile_photo_status' => 'auto_cleared',
+                        'profile_photo_validation_confidence' => (float) $row->confidence,
+                        'profile_photo_last_validated_at' => now(),
+                    ]);
+                    $row->update(['status' => 'auto_cleared', 'resolved_at' => now()]);
+                }
+
+                continue;
+            }
+
+            $recheck++;
+            $this->line("  <fg=yellow>?</> #{$politician->id} {$politician->full_name} — queued for recheck (".($row->reason ?? 'no stored result').')');
+
+            if (! $dryRun) {
+                $politician->update([
+                    'profile_photo_status' => 'needs_review',
+                    'profile_photo_last_validated_at' => null,
+                ]);
+            }
+        }
+
+        $this->newLine();
+        $this->info("Summary: cleared={$cleared}, queued_for_recheck={$recheck}");
 
         return self::SUCCESS;
     }
