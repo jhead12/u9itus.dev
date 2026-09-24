@@ -36,6 +36,11 @@ use Illuminate\Support\Facades\Log;
  *                                              step that auto-applies, and only when the FEC's
  *                                              own record confirms both names (see its docblock);
  *                                              everything else is queued for review
+ *   8. politicians:race-count-control       — read-only: how many Senate/Governor candidates
+ *                                              the map shows per state against the race calendar,
+ *                                              Wikipedia and Ballotpedia; out-of-control races are
+ *                                              listed and counted for check-cleanup-health
+ *   9. politicians:score-review-priority    — triage order for the review queue
  *   8. politicians:score-review-priority    — recomputes the FMEA-style priority score (severity ×
  *                                              occurrence × detectability) on every pending review
  *                                              in politician_cleanup_reviews / candidate_match_reviews,
@@ -81,33 +86,33 @@ class PoliticiansCleanupWorkflow extends Command
 
         $results = [];
 
-        $this->section('1/7 · Repairing junk names');
+        $this->section('1/9 · Repairing junk names');
         $results['repair-names'] = $this->callForStates('politicians:repair-names', $dryRun ? [] : ['--apply' => true, '--enqueue-review' => true], $states);
 
         // politicians:audit-data-integrity intentionally exits non-zero
         // whenever unresolved violations remain (it doubles as a CI gate) —
         // that's routine backlog, not a pipeline failure, so its exit code
         // is logged but doesn't count toward this command's own exit code.
-        $this->section('2/7 · Auditing data integrity');
+        $this->section('2/9 · Auditing data integrity');
         $auditExitCode = $this->callForStates('politicians:audit-data-integrity', $dryRun ? [] : ['--fix' => true, '--deactivate' => true], $states);
 
         if ($states !== []) {
             // Lifecycle reconciliation compares every profile against the national
             // seated list, so it can't be narrowed to a state — a targeted run skips it.
-            $this->section('3/7 · Lifecycle reconciliation skipped (runs nationally only; omit --state to include it)');
+            $this->section('3/9 · Lifecycle reconciliation skipped (runs nationally only; omit --state to include it)');
         }
 
         if ($states === [] && in_array($scope, ['all', 'federal'], true)) {
-            $this->section('3/7 · Reconciling federal lifecycle status');
+            $this->section('3/9 · Reconciling federal lifecycle status');
             $results['reconcile-status'] = $this->call('politicians:reconcile-status', $dryRun ? ['--dry-run' => true] : []);
         }
 
         if ($states === [] && in_array($scope, ['all', 'state-local'], true)) {
-            $this->section('3/7 · Reconciling state/local lifecycle status');
+            $this->section('3/9 · Reconciling state/local lifecycle status');
             $results['reconcile-status-state-local'] = $this->call('politicians:reconcile-status-state-local', $dryRun ? ['--dry-run' => true] : []);
         }
 
-        $this->section('4/7 · Detecting duplicates (queued for review, never auto-applied)');
+        $this->section('4/9 · Detecting duplicates (queued for review, never auto-applied)');
         if (in_array($scope, ['all', 'federal'], true)) {
             $results['dedupe-federal'] = $this->callForStates('politicians:dedupe', $dryRun
                 ? ['--scope' => 'federal']
@@ -119,22 +124,30 @@ class PoliticiansCleanupWorkflow extends Command
                 : ['--scope' => 'unclaimed-all', '--enqueue-review' => true], $states);
         }
 
-        $this->section('5/7 · Pruning junk election candidate records');
+        $this->section('5/9 · Pruning junk election candidate records');
         $results['clean-discovery-names'] = $this->callForStates('candidates:clean-discovery-names', $dryRun ? [] : ['--apply' => true], $states);
         $results['prune-junk-ecrs'] = $this->callForStates('politicians:prune-junk-ecrs', $dryRun ? ['--wikipedia' => true] : ['--apply' => true, '--wikipedia' => true], $states);
         $results['audit-discovery-records'] = $this->callForStates('candidates:audit-records', [], $states);
 
-        $this->section('6/7 · Impostor and headline-text profiles (duplicates of a sitting official are deactivated; the rest queued)');
+        $this->section('6/9 · Impostor and headline-text profiles (duplicates of a sitting official are deactivated; the rest queued)');
         $results['flag-suspect-profiles'] = $this->callForStates('politicians:flag-suspect-profiles', $dryRun ? [] : ['--apply' => true], $states);
 
-        $this->section('7/7 · Merging duplicates confirmed by their FEC candidate id (unconfirmed ones queued for review)');
+        $this->section('7/9 · Merging duplicates confirmed by their FEC candidate id (unconfirmed ones queued for review)');
         $results['dedupe-by-fec'] = $this->callForStates('politicians:dedupe-by-fec', $dryRun ? [] : ['--apply' => true], $states);
+
+        // Measured after every filter above, so what it reports is what they left behind.
+        // Read-only; a dry run skips its metric row so previews don't skew the health baseline.
+        $this->section('8/9 · Race-count control (map counts vs race calendar, Wikipedia and Ballotpedia)');
+        $results['race-count-control'] = $this->call('politicians:race-count-control', array_filter([
+            '--state' => $states,
+            '--no-record' => $dryRun,
+        ]));
 
         // Not counted toward this command's failure status (like step 2's audit) — scoring
         // is best-effort triage support, not a pipeline correctness gate. Skipped on
         // --dry-run since it only touches rows steps 4-7 may not have actually written.
         if (! $dryRun) {
-            $this->section('8/8 · Scoring review-queue priority');
+            $this->section('9/9 · Scoring review-queue priority');
             $this->call('politicians:score-review-priority');
         }
 

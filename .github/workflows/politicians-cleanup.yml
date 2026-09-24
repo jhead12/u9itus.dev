@@ -76,5 +76,8 @@ jobs:
 
           php artisan politicians:cleanup-workflow --scope="$SCOPE" $STATE_ARG $DRY_ARG
 
+      # Runs even when the cleanup step failed (a failed step is exactly what the silence
+      # check exists to report), but not for dry runs, which write no reviews to compare.
       - name: Check pipeline health
+        if: ${{ !cancelled() && github.event.inputs.dry_run != 'true' }}
         run: php artisan politicians:check-cleanup-health

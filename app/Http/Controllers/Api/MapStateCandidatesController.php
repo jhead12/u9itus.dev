@@ -11,6 +11,7 @@ use App\Models\StateElectionDate;
 use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\CrossStateImpostors;
+use App\Support\RaceCalendar;
 use App\Support\DataSourceLabel;
 use App\Support\MapCandidateHygiene;
 use App\Support\OfficeCanonicalizer;
@@ -182,6 +183,7 @@ class MapStateCandidatesController
         $quality = ['hidden_names' => 0, 'merged_duplicates' => 0, 'date_conflicts' => 0, 'cross_state' => 0];
         $seatedHolders = CrossStateImpostors::seatedHolders();
         $seatedByName = CrossStateImpostors::seatedStatesByName();
+        $raceFootprint = CrossStateImpostors::raceFootprint();
 
         // ── 1. Seated statewide officeholders on the platform ─────────────────
         // Only pull SEATED politicians from the platform table for statewide offices.
@@ -484,6 +486,20 @@ class MapStateCandidatesController
                 $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
                 && OfficeCanonicalizer::canonicaliseStatewide($rec->political_office) !== null
                 && CrossStateImpostors::sittingOnlyElsewhere($recName, $state, $seatedByName) !== null
+            ) {
+                $quality['cross_state']++;
+
+                continue;
+            }
+
+            // A race this state isn't holding (a New York U.S. Senate candidate in 2026), or the
+            // same race as the person's own state (Ken Paxton, Texas Senate, filed as New York).
+            if (
+                $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
+                && (
+                    RaceCalendar::held($state, $rec->political_office, RaceCalendar::yearOf($rec->election_date)) === false
+                    || CrossStateImpostors::sameRaceElsewhere($recName, $rec->political_office, $state, $raceFootprint) !== null
+                )
             ) {
                 $quality['cross_state']++;
 

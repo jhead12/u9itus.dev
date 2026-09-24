@@ -122,11 +122,13 @@ it('does not create public profiles from impostor or headline-text discovery rec
 });
 
 it('keeps the impostor off the map governor list', function () {
+    // Georgia, not North Carolina: NC holds no 2026 governor race, so RaceCalendar would hide
+    // every NC row before the impostor rule ran.
     abbottTexas();
-    discoveryEcr('Greg Abbott', 'NC');
-    discoveryEcr('Katie Porter', 'NC');
+    discoveryEcr('Greg Abbott', 'GA');
+    discoveryEcr('Katie Porter', 'GA');
 
-    $json = $this->getJson('/api/v1/map/state-candidates?state=NC')->assertOk()->json();
+    $json = $this->getJson('/api/v1/map/state-candidates?state=GA')->assertOk()->json();
     $names = collect($json['offices'])->firstWhere('office', 'Governor')['candidates'] ?? [];
     $names = collect($names)->pluck('full_name')->all();
 
@@ -135,9 +137,9 @@ it('keeps the impostor off the map governor list', function () {
 });
 
 it('shows the same row when nobody seated holds that office elsewhere', function () {
-    discoveryEcr('Greg Abbott', 'NC');
+    discoveryEcr('Greg Abbott', 'GA');
 
-    $json = $this->getJson('/api/v1/map/state-candidates?state=NC')->assertOk()->json();
+    $json = $this->getJson('/api/v1/map/state-candidates?state=GA')->assertOk()->json();
     $names = collect(collect($json['offices'])->firstWhere('office', 'Governor')['candidates'] ?? [])->pluck('full_name')->all();
 
     expect($names)->toContain('Greg Abbott')->and($json['quality']['cross_state'])->toBe(0);

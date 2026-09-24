@@ -6,6 +6,7 @@ use App\Models\CandidateLead;
 use App\Models\ElectionCandidateRecord;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\CrossStateImpostors;
+use App\Support\RaceCalendar;
 use App\Support\ElectionCycle;
 use App\Support\PoliticianDataRules;
 use Illuminate\Support\Str;
@@ -63,6 +64,18 @@ class CandidateLeadPromoter
             $lead->update([
                 'status' => CandidateLead::STATUS_REJECTED,
                 'reason' => trim((string) $lead->reason.' | cross-state: seated '.$office.' in '.$holder['state'], ' |'),
+                'resolved_at' => now(),
+            ]);
+
+            return null;
+        }
+
+        // A state-scoped news search turns up headlines about other states' races; a state
+        // that isn't holding this race can't have a candidate for it.
+        if (RaceCalendar::held($lead->state, $office) === false) {
+            $lead->update([
+                'status' => CandidateLead::STATUS_REJECTED,
+                'reason' => trim((string) $lead->reason.' | no-race: '.$lead->state.' holds no '.$office.' race in '.ElectionCycle::year(), ' |'),
                 'resolved_at' => now(),
             ]);
 

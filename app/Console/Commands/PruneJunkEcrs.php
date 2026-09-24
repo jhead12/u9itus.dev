@@ -7,7 +7,9 @@ use App\Services\CandidateDiscovery\CandidateCorroboration;
 use App\Services\WikipediaPrimaryResultsService;
 use App\Support\ElectionCycle;
 use App\Support\CandidateNameCanonicalizer;
+use App\Support\CrossStateImpostors;
 use App\Support\PoliticianDataRules;
+use App\Support\RaceCalendar;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -33,6 +35,10 @@ use Illuminate\Support\Facades\Log;
  *                (skipped with --keep-stale)
  *   - cross_state political_office names a different state than the row's
  *                own `state` column (e.g. "Texas Attorney General" / CA)
+ *   - no_race    a news-discovered Senate or Governor row in a state not holding that race that
+ *                year (config/election_races.php) — a New York U.S. Senate "candidate" in 2026
+ *   - other_state a news-discovered Senate or Governor row for someone whose profile and same
+ *                race are in another state (Ken Paxton, Texas Senate, filed as New York)
  *   - unlisted   (--wikipedia) a news-discovered Governor, Senate or House row whose name is not
  *                on the race's Wikipedia article and is not corroborated by the FEC roster or a
  *                non-news record — a headline fragment ("Lamont Launch") or a real person
@@ -129,6 +135,7 @@ class PruneJunkEcrs extends Command
             ->flip();
 
         $stateNames = PoliticianDataRules::stateNameToCode();
+        $footprint = CrossStateImpostors::raceFootprint();
 
         /** @var array<int, string> $flag  row id => reason */
         $flag = [];
@@ -138,7 +145,7 @@ class PruneJunkEcrs extends Command
         $keptLinked = [];
 
         foreach ($rows as $row) {
-            $reason = $this->classify($row, $keepStale, $staleBefore, $stateNames);
+            $reason = $this->classify($row, $keepStale, $staleBefore, $stateNames, $footprint);
             if ($reason === null && $useWikipedia) {
                 [$reason, $wraps] = $this->unlisted($row, $wikipedia, $corroboration, $rosters);
                 if ($wraps !== null) {
@@ -300,7 +307,10 @@ class PruneJunkEcrs extends Command
     /**
      * @param  array<string, string>  $stateNames
      */
-    private function classify(ElectionCandidateRecord $row, bool $keepStale, string $staleBefore, array $stateNames): ?string
+    /**
+     * @param  array{homes: array<string, array<string, true>>, races: array<string, array<string, true>>}  $footprint  from CrossStateImpostors::raceFootprint()
+     */
+    private function classify(ElectionCandidateRecord $row, bool $keepStale, string $staleBefore, array $stateNames, array $footprint): ?string
     {
         if (PoliticianDataRules::headlineFragmentViolation($row->full_name) !== null) {
             return 'name';
@@ -322,6 +332,16 @@ class PruneJunkEcrs extends Command
                 if ($code !== $rowState && str_starts_with($office, strtolower($name).' ')) {
                     return 'cross_state';
                 }
+            }
+        }
+
+        // Only unverified news-discovery rows: a feed or a person vouches for everything else.
+        if ((string) $row->source === ElectionCandidateRecord::DISCOVERY_SOURCE) {
+            if (RaceCalendar::held($rowState, $row->political_office, RaceCalendar::yearOf($row->election_date)) === false) {
+                return 'no_race';
+            }
+            if (CrossStateImpostors::sameRaceElsewhere($row->full_name, $row->political_office, $rowState, $footprint) !== null) {
+                return 'other_state';
             }
         }
 

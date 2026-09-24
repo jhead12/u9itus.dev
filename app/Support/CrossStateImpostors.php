@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
 use App\Services\CandidateDiscovery\CandidateCorroboration;
 
@@ -150,6 +151,79 @@ final class CrossStateImpostors
         }
 
         return $matches[0] ?? null;
+    }
+
+    /**
+     * Where each name has a profile (any office or status), and where it has a record for each
+     * one-per-person race, for sameRaceElsewhere().
+     *
+     * @return array{homes: array<string, array<string, true>>, races: array<string, array<string, true>>}
+     */
+    public static function raceFootprint(): array
+    {
+        $homes = [];
+        $races = [];
+        $addRace = function (?string $name, ?string $office, ?string $state) use (&$races): void {
+            $kind = RaceCalendar::kind($office);
+            $key = MapCandidateHygiene::identityKey($name);
+            if ($kind !== null && $key !== '') {
+                $races[$key.'|'.$kind][strtoupper((string) $state)] = true;
+            }
+        };
+
+        Politician::query()
+            ->whereNotNull('state')->where('state', '!=', '')
+            ->get(['full_name', 'political_office', 'state'])
+            ->each(function (Politician $p) use (&$homes, $addRace): void {
+                $key = MapCandidateHygiene::identityKey($p->full_name);
+                if ($key !== '') {
+                    $homes[$key][strtoupper((string) $p->state)] = true;
+                }
+                $addRace($p->full_name, $p->political_office, $p->state);
+            });
+
+        ElectionCandidateRecord::query()
+            ->whereNotNull('state')->where('state', '!=', '')
+            ->get(['full_name', 'political_office', 'state'])
+            ->each(fn (ElectionCandidateRecord $r) => $addRace($r->full_name, $r->political_office, $r->state));
+
+        return ['homes' => $homes, 'races' => $races];
+    }
+
+    /**
+     * The state this person is really running in, when a record puts them in the same race in
+     * $state: they have a profile somewhere else and none in $state, and a record for the same
+     * one-per-person office (Senate, Governor) in their profile's state. Nobody runs for the same
+     * office in two states, so the $state record is a national headline filed under the wrong
+     * state — Ken Paxton (Texas Senate) as a New York Senate candidate, Eric Swalwell (California
+     * Governor) as a New York one.
+     *
+     * Unlike holderElsewhere() this needs no seated office, and it covers the U.S. Senate: the
+     * profile's home state plus the same race there is what two same-named people wouldn't share.
+     *
+     * @param  array{homes: array<string, array<string, true>>, races: array<string, array<string, true>>}  $footprint  from raceFootprint()
+     */
+    public static function sameRaceElsewhere(?string $name, ?string $office, ?string $state, array $footprint): ?string
+    {
+        $kind = RaceCalendar::kind($office);
+        $key = MapCandidateHygiene::identityKey($name);
+        $state = strtoupper(trim((string) $state));
+        if ($kind === null || $key === '' || $state === '') {
+            return null;
+        }
+
+        $homes = $footprint['homes'][$key] ?? [];
+        if ($homes === [] || isset($homes[$state])) {
+            return null;
+        }
+
+        foreach (array_keys($footprint['races'][$key.'|'.$kind] ?? []) as $raceState) {
+            if ($raceState !== $state && isset($homes[$raceState])) {
+                return $raceState;
+            }
+        }
+
+        return null;
     }
 
     /**
