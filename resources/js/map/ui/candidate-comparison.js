@@ -79,22 +79,22 @@ export function renderComparison(data, selectedKeys = [], options = {}) {
         </fieldset>
         ${selected.length ? `<p class="compare-scroll-hint">Scroll sideways to see every column.</p>
         <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Side-by-side candidate comparison">
-            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, ${options.basic ? '' : 'campaign finance, record, and '}recorded policy positions for ${esc(data.seat?.label)}</caption>
+            <table class="compare-table" style="min-width:${112 + selected.length * 205}px"><caption>Party, incumbency, campaign finance, record, and recorded policy positions for ${esc(data.seat?.label)}</caption>
             <thead><tr><th scope="col">Compare</th>${selected.map(c => `<th scope="col">${esc(c.full_name)}</th>`).join('')}</tr></thead>
             <tbody>
                 ${row('Party', selected.map(c => esc(c.party || 'Not recorded')))}
                 ${row('Incumbency', selected.map(c => esc(c.incumbency || 'Not recorded')))}
                 ${row('Candidacy', selected.map(c => esc(c.candidacy || 'Not recorded')))}
-                ${options.basic ? '' : row('Campaign finance', selected.map(finance))}
-                ${!options.basic && selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
-                ${options.basic ? '' : row('Issue focus', selected.map(focus))}
+                ${row('Campaign finance', selected.map(finance))}
+                ${selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
+                ${row('Issue focus', selected.map(focus))}
                 ${stanceRows || row('Policy positions', selected.map(() => empty))}
                 ${hasNews ? row('Recent news coverage', selected.map(c => articles(c.news?.coverage))) : ''}
                 ${hasNews ? row('Candidate press releases', selected.map(c => articles(c.news?.press_releases))) : ''}
                 ${row('Record source', selected.map(c => `${sourceLink(c.profile_url, c.source_label || 'Public records')}<br><small>${esc(dateLabel(c.updated_at))}</small>`))}
             </tbody></table>
         </div>` : '<p class="compare-notice" role="status">Select a candidate above to start comparing.</p>'}
-        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. ${options.basic ? '' : 'Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. '}Party, money, and issue focus are never used to infer a stance.${hasNews ? ' News coverage is reporting about a candidate, not their position; press releases are written by the candidate or their office. We do not rate coverage as positive or negative.' : ''}</p>
+        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. Party, money, and issue focus are never used to infer a stance.${hasNews ? ' News coverage is reporting about a candidate, not their position; press releases are written by the candidate or their office. We do not rate coverage as positive or negative.' : ''}</p>
     </section>`;
 }
 

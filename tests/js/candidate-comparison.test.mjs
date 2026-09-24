@@ -61,7 +61,7 @@ test('research view aligns topic headings and keeps missing positions explicit',
     assert.equal((html.match(/<th scope="row">Housing<\/th>/g) || []).length, 1);
     assert.match(html, /No upcoming election is confirmed/);
     assert.match(html, /Not recorded/);
-    assert.ok(!html.includes('<th scope="row">Campaign finance</th>'));
+    assert.ok(html.includes('<th scope="row">Campaign finance</th>'));
 });
 test('comparison table shows recent coverage and press releases separately, with safe links and no tone', () => {
     const data = { seat: { label: 'U.S. House · CA-03' }, candidates: [
@@ -77,4 +77,12 @@ test('comparison table shows recent coverage and press releases separately, with
     assert.match(html, /None recorded in the last year/);
     assert.match(html, /do not rate coverage as positive or negative/);
     assert.doesNotMatch(renderComparison({ ...data, candidates: data.candidates.map(({ news, ...c }) => c) }, ['a', 'b']), /Recent news coverage/);
+});
+test('the standalone page shows campaign finance, record, and issue focus like the map', () => {
+    const data = { seat: { label: 'U.S. House · CA-03' }, candidates: [{ key: 'a', full_name: 'Alex Rivera', issue_focus: ['Housing'],
+        finance: { cycle: 2026, receipts: '$10', source_url: 'https://www.fec.gov/data/' }, legislation: { sponsored: 3, cosponsored: 5 } }] };
+    const html = renderComparison(data, ['a'], { basic: true });
+    assert.match(html, /Campaign finance/);
+    assert.match(html, /Legislative record/);
+    assert.match(html, /Issue focus/);
 });

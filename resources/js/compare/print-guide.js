@@ -74,8 +74,17 @@ export function renderPrintGuide(data, selectedKeys) {
     const table = (caption, rows) => `<table class="guide-table"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Information</th>${candidates.map(c => `<th scope="col">${esc(c.full_name)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
     const row = (label, render) => `<tr><th scope="row">${esc(label)}</th>${candidates.map(c => `<td>${render(c)}</td>`).join('')}</tr>`;
     const field = key => c => esc(c[key] || 'Not recorded');
+    // Money is reported as filed with the FEC for its cycle and period; never used to infer a position.
+    const finance = c => {
+        const f = c.finance;
+        if (!f) return 'Not recorded';
+        const figures = [['Raised', f.receipts], ['Spent', f.disbursements], ['Cash on hand', f.cash_on_hand]].filter(([, v]) => v)
+            .map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('<br>');
+        return `<p>${figures || 'Not recorded'}</p>${reference(f.source_url, `FEC filings${f.cycle ? `, ${f.cycle} cycle` : ''}`, f.coverage_end_date, 'Through')}`;
+    };
     const profileRows = row('Political party', field('party')) + row('Current role', field('incumbency'))
         + row('Running status', field('candidacy'))
+        + row('Campaign money (FEC)', finance)
         + row('Record source', c => reference(c.profile_url, c.source_label, c.updated_at));
     const electionDate = guideDate(data.election?.date);
     const missing = selectedKeys.filter(key => !candidates.some(c => c.key === key));
@@ -96,7 +105,7 @@ export function renderPrintGuide(data, selectedKeys) {
         <h2>What is in this guide?</h2><ol class="guide-contents">${contents.map(title => `<li>${esc(title)}</li>`).join('')}</ol>
     </section>
     <section class="guide-section">${header}<p class="guide-seat">${seat}</p><h2>1. Who is being compared?</h2>
-        ${table('Party, current role, and running status', profileRows)}
+        ${table('Party, current role, running status, and campaign money', profileRows)}
         ${topics.length ? '' : '<p>No policy statements are recorded for these selected people.</p>'}
     </section>`;
     const issueSections = topics.map(([key], i) => {

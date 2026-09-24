@@ -282,6 +282,36 @@
     display:block;
     margin-top:2px;
 }
+.compare-figure {
+    line-height:1.6;
+}
+.compare-figure span {
+    color:#94a3b8;
+}
+.compare-figure strong {
+    color:#f1f5f9;
+    font-variant-numeric:tabular-nums;
+}
+.compare-list {
+    margin:6px 0;
+    padding-left:18px;
+    list-style:disc;
+}
+.compare-chips {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+.compare-chips li {
+    padding:2px 10px;
+    border:1px solid #475569;
+    border-radius:999px;
+    font-size:13px;
+    background:rgba(99,102,241,.1);
+}
 .compare-missing {
     color:#94a3b8;
     font-style:italic;

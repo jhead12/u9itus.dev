@@ -220,10 +220,21 @@ async function loadOverviewEnrichment(cand) {
     }
 }
 
+/**
+ * Link from the Compare tab to the standalone /compare page (search other races,
+ * print a guide, share). Senate seats are left out: /compare cannot yet tell
+ * which of a state's two seats is meant.
+ */
+function fullComparisonLink(extra) {
+    const seat = extra?.comparison?.seat;
+    if (!seat || !extra.comparisonParams || /^U\.S\. Senate/.test(seat.label || '')) return '';
+    const params = new URLSearchParams(extra.comparisonParams);
+    if (extra.comparisonSelected?.length) params.set('selected', extra.comparisonSelected.join(','));
+    return `<p class="compare-full-link"><a href="/compare?${escapeHtml(params.toString())}">Open the full comparison page</a> to search other races, print a voter guide, or share a link.</p>`;
+}
+
 async function loadCandidateComparison() {
     const context = _polCtx;
-    const fullComparison = document.getElementById('pol-full-comparison');
-    if (fullComparison) fullComparison.hidden = true;
     if (!context || context.extra?.isCityView) return;
     comparisonAbort?.abort();
     const controller = new AbortController();
@@ -244,16 +255,12 @@ async function loadCandidateComparison() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (_polCtx !== context || comparisonAbort !== controller) return;
-        if (fullComparison && data.seat) {
-            fullComparison.href = `/compare?${params}`;
-            fullComparison.hidden = false;
-        }
         const compareTab = document.getElementById('pol-tab-compare');
         if (compareTab) compareTab.hidden = data.available !== true;
         if (data.available !== true && _polTab === 'compare') {
             document.getElementById('pol-tab-overview')?.click();
         }
-        context.extra = { ...context.extra, comparison: data, comparisonSelected: initialComparisonSelection(data), comparisonLoading: false };
+        context.extra = { ...context.extra, comparison: data, comparisonParams: params.toString(), comparisonSelected: initialComparisonSelection(data), comparisonLoading: false };
     } catch {
         if (_polCtx !== context || comparisonAbort !== controller) return;
         context.extra = { ...context.extra, comparisonLoading: false, comparisonError: true };
@@ -758,7 +765,7 @@ function _renderPolBody() {
         } else if (extra?.comparisonError) {
             polBodyEl.innerHTML = '<div class="pol-compare"><h3>Compare this seat</h3><p class="compare-note" role="alert">Comparison data is unavailable right now.</p><button type="button" class="compare-retry" data-compare-retry>Try again</button></div>';
         } else {
-            polBodyEl.innerHTML = renderComparison(extra?.comparison, extra?.comparisonSelected);
+            polBodyEl.innerHTML = renderComparison(extra?.comparison, extra?.comparisonSelected) + fullComparisonLink(extra);
         }
         return;
     }
@@ -1216,12 +1223,6 @@ export function initPolDrawer() {
         if (input.checked && selected.size < 3) selected.add(input.dataset.compareKey);
         else selected.delete(input.dataset.compareKey);
         _polCtx.extra.comparisonSelected = [...selected];
-        const fullLink = document.getElementById('pol-full-comparison');
-        if (fullLink && !fullLink.hidden) {
-            const url = new URL(fullLink.href);
-            url.searchParams.set('selected', [...selected].join(','));
-            fullLink.href = url.href;
-        }
         _renderPolBody();
         [...polBodyEl.querySelectorAll('[data-compare-key]')]
             .find(el => el.dataset.compareKey === input.dataset.compareKey)?.focus();
