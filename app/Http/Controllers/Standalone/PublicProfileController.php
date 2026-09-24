@@ -6,6 +6,9 @@ use App\Enums\ApprovalStatus;
 use App\Enums\CampaignStatus;
 use App\Http\Controllers\Controller;
 use App\Models\CandidateNewsArticle;
+use App\Models\CongressCommitteeAssignment;
+use App\Models\CongressFloorSpeech;
+use App\Models\CongressMemberLegislation;
 use App\Models\DistrictLookupSearch;
 use App\Models\ElectionCandidateRecord;
 use App\Models\Politician;
@@ -35,6 +38,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -780,7 +784,9 @@ class PublicProfileController extends Controller
             $topicRows = PoliticianTopic::whereIn('slug', $topicSlugs)->where('is_active', true)->get()->keyBy('slug');
 
             $query->where(function ($q) use ($topicSlugs, $topicRows) {
-                foreach ($topicSlugs as $topic) {
+                foreach ($topicSlugs as $slug) {
+                    // Match prose, not the slug: "public-safety" never appears in a bio.
+                    $topic = $topicRows->get($slug)?->name ?? str_replace('-', ' ', $slug);
                     $q->orWhere('bio', 'like', '%'.$topic.'%')
                         ->orWhereHas('campaigns', function ($cq) use ($topic) {
                             $cq->where('approval_status', 'approved')
@@ -798,7 +804,7 @@ class PublicProfileController extends Controller
                         });
 
                     // Structured badge match (self-declared + inferred discourse).
-                    if ($topicRow = $topicRows->get($topic)) {
+                    if ($topicRow = $topicRows->get($slug)) {
                         $q->orWhereHas('publicBadges', function ($bq) use ($topicRow) {
                             $bq->where('topic_id', $topicRow->id);
                         });
@@ -913,6 +919,22 @@ class PublicProfileController extends Controller
                 ->get(['id', 'slug', 'name', 'icon', 'badge_color']);
         });
 
+        // Profiles carrying each topic's public badge, so chips show how many
+        // results they lead to and empty topics can be hidden.
+        $topicCounts = Cache::remember('issues:directory-topic-counts', 300, function () {
+            return DB::table('profile_badges')
+                ->join('politicians', 'politicians.id', '=', 'profile_badges.badgeable_id')
+                ->where('profile_badges.badgeable_type', (new Politician)->getMorphClass())
+                ->where('profile_badges.is_public', true)
+                ->where('politicians.page_published', true)
+                ->where('politicians.is_active', true)
+                ->groupBy('profile_badges.topic_id')
+                ->selectRaw('profile_badges.topic_id, count(distinct profile_badges.badgeable_id) as total')
+                ->pluck('total', 'topic_id')
+                ->map(fn ($total) => (int) $total)
+                ->all();
+        });
+
         $view = $useVoterLayout
             ? 'standalone.voter.politicians-directory'
             : 'standalone.public.politicians-directory';
@@ -926,7 +948,8 @@ class PublicProfileController extends Controller
             'zipInput',
             'zipValidationError',
             'latestNewsMap',
-            'topics'
+            'topics',
+            'topicCounts'
         ));
     }
 
@@ -1280,6 +1303,43 @@ class PublicProfileController extends Controller
             Log::info('Voting record unavailable for profile', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
         }
 
+        // Committee seats (congress:sync-committees) with subcommittees nested under
+        // their parent, and the member's bills by policy area (congress:sync-legislation).
+        $committees = collect();
+        $legislation = null;
+        if ($politician->bioguide_id) {
+            try {
+                $seats = CongressCommitteeAssignment::where('bioguide_id', $politician->bioguide_id)->orderBy('name')->get();
+                $committees = $seats->whereNull('parent_code')
+                    ->sortBy(fn (CongressCommitteeAssignment $seat) => [$seat->title ? 0 : 1, $seat->name])
+                    ->map(fn (CongressCommitteeAssignment $seat) => [
+                        'seat' => $seat,
+                        'subcommittees' => $seats->where('parent_code', $seat->committee_code)->values(),
+                    ])
+                    ->values();
+                $legislation = CongressMemberLegislation::where('bioguide_id', $politician->bioguide_id)->first();
+            } catch (\Throwable $e) {
+                Log::info('Committee data unavailable for profile', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        // Latest Congressional Record speeches with an issue, for "On the Floor".
+        $floorSpeeches = collect();
+        $floorSpeechTotal = 0;
+        if ($politician->bioguide_id) {
+            try {
+                $floorSpeechTotal = CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)->count();
+                $floorSpeeches = CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)
+                    ->whereNotNull('topic_key')
+                    ->with('topic')
+                    ->orderByDesc('spoken_on')
+                    ->limit(4)
+                    ->get();
+            } catch (\Throwable $e) {
+                Log::info('Floor speeches unavailable for profile', ['politician_id' => $politician->id, 'error' => $e->getMessage()]);
+            }
+        }
+
         // Top 3 highest-scoring viral moments (YouTube/C-SPAN/podcast/etc. clips)
         // published in the last 7 days, for the "Top This Week" video embeds.
         $topWeeklyMoments = $politician->viralMoments()
@@ -1478,6 +1538,10 @@ class PublicProfileController extends Controller
             'digDeeperData',
             'endorsements',
             'votingRecord',
+            'committees',
+            'legislation',
+            'floorSpeeches',
+            'floorSpeechTotal',
             'topWeeklyMoments',
             'meTokenData',
             'termInfo',
@@ -2397,6 +2461,47 @@ class PublicProfileController extends Controller
 
         return view('standalone.public.votes', compact(
             'politician', 'page', 'summary', 'votes', 'filter', 'ogTitle', 'ogDescription', 'ogUrl',
+        ));
+    }
+
+    /**
+     * GET /p/{slug}/speeches
+     * Searchable Congressional Record speeches for a sitting member of Congress.
+     */
+    public function speeches(Request $request, string $slug)
+    {
+        $politician = $this->resolvePublicPolitician($slug);
+        if (! $politician || ! $politician->bioguide_id
+            || ! CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)->exists()) {
+            abort(404);
+        }
+
+        $page = $politician->page
+            ?? new PoliticianPage(PoliticianPage::defaults($politician->id));
+
+        $q = mb_substr(trim((string) $request->query('q', '')), 0, 100);
+        $topic = trim((string) $request->query('topic', ''));
+
+        $base = CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id);
+        $topics = PoliticianTopic::whereIn('slug', (clone $base)->whereNotNull('topic_key')->distinct()->pluck('topic_key'))
+            ->orderBy('name')
+            ->get(['slug', 'name', 'icon']);
+
+        $speeches = (clone $base)
+            ->with('topic')
+            ->when($q !== '', fn ($query) => $query->search($q))
+            ->when($topic !== '', fn ($query) => $query->where('topic_key', $topic))
+            ->orderByDesc('spoken_on')
+            ->orderBy('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        $ogTitle = $politician->full_name.' — Floor Speeches';
+        $ogDescription = "What {$politician->full_name} has said on the floor of Congress, from the Congressional Record, with links to the official text and C-SPAN video.";
+        $ogUrl = route('politician.public.speeches', $slug);
+
+        return view('standalone.public.speeches', compact(
+            'politician', 'page', 'speeches', 'topics', 'q', 'topic', 'ogTitle', 'ogDescription', 'ogUrl',
         ));
     }
 

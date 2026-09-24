@@ -25,6 +25,8 @@ class PoliticianTopicSignal extends Model
         'news_count',
         'viral_moment_count',
         'votesmart_count',
+        'legislation_count',
+        'floor_speech_count',
         'total_score',
         'score_components',
         'last_seen_at',
@@ -34,6 +36,8 @@ class PoliticianTopicSignal extends Model
     {
         return [
             'news_count'         => 'integer',
+            'legislation_count'  => 'integer',
+            'floor_speech_count' => 'integer',
             'viral_moment_count' => 'integer',
             'votesmart_count'    => 'integer',
             'total_score'        => 'decimal:4',

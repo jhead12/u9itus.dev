@@ -85,30 +85,31 @@ class IssueClassifierService
     // ── Tier 1: keyword ───────────────────────────────────────────────────
 
     /**
-     * Substring scoring against active topic slugs/names, ported from
-     * CandidateNewsService::extractTopicKey but also resolving the topic_id.
+     * Phrase scoring against each active topic's slug, name and keywords. The one
+     * keyword matcher for the app: news tagging and bill titles call it too.
+     * A slug or name hit is strong on its own; the first keyword hit clears the
+     * confidence floor and each further distinct keyword adds a little more.
      *
      * @return array{topic_slug: string|null, topic_id: int|null, confidence: float, method: string}
      */
-    protected function classifyKeyword(string $text): array
+    public function classifyKeyword(string $text): array
     {
-        $haystack = Str::lower($text);
+        $haystack = preg_replace('/\s+/u', ' ', Str::lower($text));
         $best = null;
         $bestScore = 0.0;
 
         foreach ($this->topicCatalog() as $topic) {
-            $slug = (string) ($topic['slug'] ?? '');
-            $name = (string) ($topic['name'] ?? '');
-            if ($slug === '' && $name === '') {
-                continue;
-            }
-
             $score = 0.0;
-            if ($slug !== '' && str_contains($haystack, str_replace('-', ' ', $slug))) {
+            if ($topic['slug'] !== '' && $this->containsPhrase($haystack, str_replace('-', ' ', $topic['slug']))) {
                 $score += 0.65;
             }
-            if ($name !== '' && str_contains($haystack, $name)) {
+            if ($topic['name'] !== '' && $this->containsPhrase($haystack, $topic['name'])) {
                 $score += 0.55;
+            }
+
+            $hits = count(array_filter($topic['keywords'], fn (string $keyword) => $this->containsPhrase($haystack, $keyword)));
+            if ($hits > 0) {
+                $score += 0.55 + 0.15 * ($hits - 1);
             }
 
             if ($score > $bestScore) {
@@ -127,6 +128,20 @@ class IssueClassifierService
             'confidence' => round(min(1.0, $bestScore), 3),
             'method' => 'keyword',
         ];
+    }
+
+    /** Keyword result only when it clears the confidence floor, for callers that never use the LLM tier. */
+    public function confidentKeywordMatch(string $text): ?array
+    {
+        $result = $this->classifyKeyword($text);
+
+        return $result['topic_id'] !== null && $result['confidence'] >= $this->keywordThreshold ? $result : null;
+    }
+
+    // Whole-word match, so "gun" does not tag "Gunther" and "rent" does not tag "current".
+    protected function containsPhrase(string $haystack, string $phrase): bool
+    {
+        return $phrase !== '' && preg_match('/(?<![\p{L}\p{N}])'.preg_quote($phrase, '/').'(?![\p{L}\p{N}])/u', $haystack) === 1;
     }
 
     // ── Tier 2: LLM fallback ──────────────────────────────────────────────
@@ -210,6 +225,90 @@ class IssueClassifierService
         }
     }
 
+    // ── Statements of position ────────────────────────────────────────────
+
+    /**
+     * Reads a politician's own statement (a floor speech) for the issue it is about, the
+     * position taken, and a verbatim quote that shows it. The quote is dropped unless it
+     * appears in the text, so a paraphrase is never shown as the speaker's words.
+     *
+     * @return array{topic_slug: ?string, confidence: float, stance: ?string, position: ?string, quote: ?string}|null
+     *                                                                                                                null when the LLM is unavailable or failed
+     */
+    public function analyzeStatement(string $title, string $text): ?array
+    {
+        if (! $this->isLlmConfigured() || trim($text) === '') {
+            return null;
+        }
+
+        try {
+            $system = 'You analyze statements by U.S. elected officials for a nonpartisan civic site. '
+                .'Describe what the speaker argues in neutral, factual language; never characterize motives '
+                .'or judge the position. Output strict JSON and nothing else.';
+
+            $shape = '{"topic_id": <int|null>, "confidence": <0.0-1.0>, "stance": "support"|"oppose"|"mixed"|null, '
+                .'"position": "<one neutral sentence, max 25 words, starting with a verb, e.g. Supports ...>"|null, '
+                .'"quote": "<exact sentence(s) copied from the statement, max 40 words>"|null}';
+
+            $user = "Catalog (topic_id → name):\n".$this->topicCatalogForPrompt()."\n\n"
+                .'Rules: topic_id is the issue the statement is substantively about (null for tributes, '
+                .'procedure or scheduling). stance is whether the speaker argues for or against the policy, bill '
+                .'or action they discuss (null if they take no position). position names that policy. quote '
+                ."must be copied character-for-character from the statement.\n\n"
+                ."Title: {$title}\n\nStatement:\n".mb_substr($text, 0, 8000)."\n\n"
+                .'Return JSON with this exact shape: '.$shape;
+
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'x-api-key' => $this->apiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'Content-Type' => 'application/json',
+                ])
+                ->post('https://api.anthropic.com/v1/messages', [
+                    'model' => $this->model,
+                    'max_tokens' => 400,
+                    'system' => $system,
+                    'messages' => [['role' => 'user', 'content' => $user]],
+                ]);
+
+            if (! $response->ok()) {
+                $this->logHttpFailure('analyze_statement', $response->status());
+
+                return null;
+            }
+
+            $raw = trim($response->json('content.0.text') ?? '');
+            if (preg_match('/\{.*\}/s', $raw, $m)) {
+                $raw = $m[0];
+            }
+            $decoded = json_decode($raw, true);
+            if (! is_array($decoded)) {
+                return null;
+            }
+
+            $slug = isset($decoded['topic_id']) ? $this->slugForId((int) $decoded['topic_id']) : null;
+            $stance = in_array($decoded['stance'] ?? null, ['support', 'oppose', 'mixed'], true) ? $decoded['stance'] : null;
+            $position = trim((string) ($decoded['position'] ?? ''));
+            $quote = trim((string) ($decoded['quote'] ?? ''));
+            $normalize = fn (string $v) => preg_replace('/\s+/u', ' ', $v);
+            if ($quote === '' || ! str_contains($normalize($text), $normalize($quote))) {
+                $quote = null;
+            }
+
+            return [
+                'topic_slug' => $slug,
+                'confidence' => $slug ? round(min(1.0, max(0.0, (float) ($decoded['confidence'] ?? 0.0))), 3) : 0.0,
+                'stance' => $stance,
+                'position' => $position !== '' ? mb_substr($position, 0, 500) : null,
+                'quote' => $quote !== null ? mb_substr($quote, 0, 600) : null,
+            ];
+        } catch (\Throwable $e) {
+            $this->logProviderException('analyze_statement', $e);
+
+            return null;
+        }
+    }
+
     // ── Catalog helpers ───────────────────────────────────────────────────
 
     /**
@@ -220,14 +319,15 @@ class IssueClassifierService
      */
     protected function topicCatalog(): array
     {
-        return Cache::remember('issues:topic-catalog', 300, function () {
+        return Cache::remember('issues:topic-catalog-v2', 300, function () {
             return PoliticianTopic::query()
                 ->where('is_active', true)
-                ->get(['id', 'slug', 'name'])
+                ->get(['id', 'slug', 'name', 'keywords'])
                 ->map(fn (PoliticianTopic $t) => [
                     'id' => (int) $t->id,
                     'slug' => strtolower((string) $t->slug),
                     'name' => strtolower((string) $t->name),
+                    'keywords' => array_values(array_filter(array_map(fn ($k) => strtolower(trim((string) $k)), (array) ($t->keywords ?? [])))),
                 ])
                 ->all();
         });

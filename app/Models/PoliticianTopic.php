@@ -28,6 +28,9 @@ class PoliticianTopic extends Model
         'badge_color',
         'voter_selectable',
         'auto_earned_only',
+        // Matching vocabulary for news, bill titles and Congress.gov policy areas
+        'keywords',
+        'policy_areas',
     ];
 
     protected function casts(): array
@@ -37,6 +40,8 @@ class PoliticianTopic extends Model
             'sort_order'       => 'integer',
             'voter_selectable' => 'boolean',
             'auto_earned_only' => 'boolean',
+            'keywords'         => 'array',
+            'policy_areas'     => 'array',
         ];
     }
 

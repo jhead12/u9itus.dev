@@ -525,7 +525,25 @@ return [
             'news' => 1.0,
             'viral_moment' => 1.2,
             'votesmart' => 1.5,
+            // Bills sponsored/cosponsored (congress:sync-legislation) — a filed record.
+            'legislation' => 1.0,
+            // Congressional Record speeches (congress:analyze-floor-speeches); lower
+            // than news per item so one speech alone does not earn a badge.
+            'floor_speech' => 0.6,
         ],
+
+        // Floor speeches count for this long, decaying with this half-life.
+        'floor_speech_window_days' => env('ISSUE_FLOOR_SPEECH_WINDOW_DAYS', 365),
+        'floor_speech_half_life_days' => env('ISSUE_FLOOR_SPEECH_HALF_LIFE_DAYS', 180),
+
+        // Legislation scoring. One cosponsorship counts this fraction of a
+        // sponsored bill; a topic scores 1 point per this share of the member's
+        // weighted bill activity (so the default threshold needs ~8%); and topics
+        // below this many weighted bills never score, so a member with two bills
+        // is not "focused" on both.
+        'legislation_cosponsor_weight' => env('ISSUE_LEGISLATION_COSPONSOR_WEIGHT', 0.2),
+        'legislation_share_per_point' => env('ISSUE_LEGISLATION_SHARE_PER_POINT', 0.08),
+        'legislation_min_bills' => env('ISSUE_LEGISLATION_MIN_BILLS', 3),
     ],
 
     /*
