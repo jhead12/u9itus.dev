@@ -416,3 +416,22 @@ test('a candidate record merged into the pool uses its linked profile\'s evidenc
         ->and($response->json('seat.finance_note'))->toContain("FEC data covers federal races only");
     $this->getJson(comparisonUrl(comparisonProfile('Jamie Carter', 'CA-03')))->assertOk()->assertJsonPath('seat.finance_note', null);
 });
+
+test('comparison lists only editor-confirmed endorsements and says when one backed a bill', function () {
+    $carter = comparisonProfile('Jamie Carter', 'CA-03');
+    comparisonProfile('Alex Rivera', 'CA-03');
+    $endorsement = fn (array $a) => \App\Models\PoliticianEndorsement::create(array_merge([
+        'politician_id' => $carter->id, 'group_key' => 'governor', 'label' => 'Governor', 'endorser_key' => '', 'endorser_name' => null,
+        'matched_phrase' => 'Governor endorses Carter', 'confidence' => 0.9, 'source_url' => 'https://news.example.com/e', 'match_count' => 1,
+    ], $a));
+    $endorsement(['status' => 'confirmed', 'endorser_name' => 'Gavin Newsom', 'endorser_key' => 'gavin-newsom', 'reviewed_at' => '2026-09-18 10:00:00']);
+    $endorsement(['status' => 'confirmed', 'group_key' => 'labor', 'label' => 'AFL-CIO', 'kind' => 'bill', 'bill_title' => 'Clean Water Act']);
+    $endorsement(['status' => 'detected', 'group_key' => 'president', 'label' => 'President']);
+    $endorsement(['status' => 'dismissed', 'group_key' => 'senate', 'label' => 'U.S. Senator']);
+
+    $candidates = collect($this->getJson(comparisonUrl($carter, ['context' => 'research']))->assertOk()->json('candidates'))->keyBy('full_name');
+    expect($candidates['Jamie Carter']['endorsements'])->toBe([
+        ['endorser' => 'Gavin Newsom', 'role' => 'Governor', 'kind' => 'candidate', 'bill_title' => null, 'source_name' => null, 'source_url' => 'https://news.example.com/e', 'reviewed_at' => '2026-09-18'],
+        ['endorser' => 'AFL-CIO', 'role' => null, 'kind' => 'bill', 'bill_title' => 'Clean Water Act', 'source_name' => null, 'source_url' => 'https://news.example.com/e', 'reviewed_at' => null],
+    ])->and($candidates['Alex Rivera']['endorsements'])->toBe([]);
+});

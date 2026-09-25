@@ -22,6 +22,12 @@ class CongressVote extends Model
         return $this->hasMany(CongressMemberVote::class);
     }
 
+    /** Topics an editor tied this roll call to, with what a yea vote means for each. */
+    public function topicTags(): HasMany
+    {
+        return $this->hasMany(CongressVoteTopic::class);
+    }
+
     /** Congress.gov page for the bill or nomination this roll call was about, when the number is recognisable. */
     public function billUrl(): ?string
     {

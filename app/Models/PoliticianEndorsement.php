@@ -93,6 +93,14 @@ class PoliticianEndorsement extends Model
         return $this->endorser_name ?: $this->label;
     }
 
+    /** One line for digests and lists: "Gavin Newsom (Governor) endorsed the candidate". */
+    public function summary(): string
+    {
+        $who = $this->endorser_name ? "{$this->endorser_name} ({$this->label})" : $this->label;
+
+        return $this->isBill() ? "{$who} backed their bill: {$this->bill_title}" : "{$who} endorsed the candidate";
+    }
+
     /**
      * A reviewer hint only: the phrase reads like support for a bill ("endorses
      * Congresswoman Escobar's Dignity Act"). Returns the bill title it found, or null.

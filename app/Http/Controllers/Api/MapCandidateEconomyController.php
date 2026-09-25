@@ -98,18 +98,22 @@ class MapCandidateEconomyController
     }
 
     /**
-     * News-detected endorsements (e.g. "Governor Endorsed") — distinct from
-     * the donor-inferred pac_affiliations badges above.
+     * Editor-confirmed endorsements (e.g. "Governor Endorsed") — distinct from
+     * the donor-inferred pac_affiliations badges above. A bill endorsement names the bill.
      *
-     * @return array<int, array{group: string, label: string, badge_text: string, endorser_name: ?string, source_url: ?string}>
+     * @return array<int, array{group: string, label: string, badge_text: string, endorser_name: ?string, kind: string, bill_title: ?string, source_url: ?string}>
      */
     private function formatEndorsements(Politician $politician): array
     {
         return PoliticianEndorsement::listedFor($politician)->map(fn ($e) => [
             'group' => $e->group_key,
             'label' => $e->label,
-            'badge_text' => $e->endorser_name ? "{$e->endorser_name} ({$e->label})" : $e->label . ' Endorsed',
+            'badge_text' => $e->isBill()
+                ? "{$e->endorserLabel()} backed their bill: {$e->bill_title}"
+                : ($e->endorser_name ? "{$e->endorser_name} ({$e->label})" : $e->label . ' Endorsed'),
             'endorser_name' => $e->endorser_name,
+            'kind' => $e->kind,
+            'bill_title' => $e->bill_title,
             'source_url' => $e->source_url,
         ])->all();
     }

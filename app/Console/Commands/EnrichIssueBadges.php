@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\CongressFloorSpeech;
 use App\Models\CongressMemberLegislation;
+use App\Models\CongressMemberVote;
+use App\Models\CongressVoteTopic;
 use App\Models\Politician;
 use App\Services\BadgeService;
 use App\Services\PoliticianTopicSignalService;
@@ -17,7 +19,10 @@ use Illuminate\Support\Facades\Log;
  * For each politician: PoliticianTopicSignalService::compute() rolls up news +
  * viral-moment + Vote Smart evidence into politician_topic_signals, then
  * BadgeService::grantInferredBadges() grants an `inferred_discourse` badge for
- * any topic whose total_score crosses the configured threshold.
+ * any topic whose total_score crosses the configured threshold, with a Supports /
+ * Opposes position when the member's floor speeches clearly take one. Then
+ * BadgeService::syncVoteBadges() adds badges for roll calls an editor tied to a
+ * topic (e.g. war powers votes on the Iran conflict), described in the editor's words.
  *
  * Mirrors EnrichCspanMoments / EnrichViralMoments (same option surface, the
  * news-freshness gate so quiet politicians are skipped unless --force). Dry-run
@@ -124,7 +129,8 @@ class EnrichIssueBadges extends Command
 
                 $granted = $badges->grantInferredBadges($politician, $rows);
                 $grantedTotal += $granted;
-                $this->line("  ✓ {$politician->full_name} (signals={$rows->count()}, granted={$granted})");
+                $voteBadges = $badges->syncVoteBadges($politician);
+                $this->line("  ✓ {$politician->full_name} (signals={$rows->count()}, granted={$granted}, vote badges={$voteBadges})");
             } catch (\Throwable $e) {
                 $failed++;
                 $this->warn("  ✗ {$politician->full_name}: {$e->getMessage()}");
@@ -159,7 +165,9 @@ class EnrichIssueBadges extends Command
     {
         return $politician->bioguide_id
             && (CongressMemberLegislation::where('bioguide_id', $politician->bioguide_id)->exists()
-                || CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)->whereNotNull('topic_key')->exists());
+                || CongressFloorSpeech::where('bioguide_id', $politician->bioguide_id)->whereNotNull('topic_key')->exists()
+                || CongressMemberVote::where('bioguide_id', $politician->bioguide_id)
+                    ->whereIn('congress_vote_id', CongressVoteTopic::select('congress_vote_id'))->exists());
     }
 
     private function reportDryRun(Politician $politician, $rows): void
@@ -174,7 +182,7 @@ class EnrichIssueBadges extends Command
             $topicName = $signal->topic?->name ?? "#{$signal->topic_id}";
             $wouldGrant = (float) $signal->total_score >= $threshold ? ' ★ would grant' : '';
             $this->line(sprintf(
-                '    [dry-run] %s — score=%.4f (news=%d, viral=%d, votesmart=%d, bills=%d, speeches=%d)%s',
+                '    [dry-run] %s — score=%.4f (news=%d, viral=%d, votesmart=%d, bills=%d, speeches=%d, for=%d, against=%d)%s',
                 $topicName,
                 (float) $signal->total_score,
                 $signal->news_count,
@@ -182,6 +190,8 @@ class EnrichIssueBadges extends Command
                 $signal->votesmart_count,
                 $signal->legislation_count,
                 $signal->floor_speech_count,
+                $signal->support_count,
+                $signal->oppose_count,
                 $wouldGrant,
             ));
         }

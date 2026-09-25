@@ -102,7 +102,11 @@ class AdminTopicController extends Controller
             'badge_color'       => ['nullable', 'string', 'max:7'],
             'voter_selectable'  => ['boolean'],
             'auto_earned_only'  => ['boolean'],
+            'kind'              => ['nullable', 'in:issue,current_event'],
+            'support_label'     => ['nullable', 'string', 'max:120', 'required_with:oppose_label'],
+            'oppose_label'      => ['nullable', 'string', 'max:120', 'required_with:support_label'],
         ]);
+        $validated['kind'] = $validated['kind'] ?? PoliticianTopic::KIND_ISSUE;
 
         // Checkboxes are absent from the request entirely when unchecked.
         $validated['is_active'] = $request->boolean('is_active');

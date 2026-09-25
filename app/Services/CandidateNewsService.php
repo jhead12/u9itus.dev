@@ -574,6 +574,11 @@ class CandidateNewsService
 
             $name = $this->resolveEndorserName($politicianId, $match['group'], $match['endorser_name'] ?? null);
             $existing = $this->matchingEndorsement($politicianId, $match['group'], $name);
+            // An editor already confirmed or dismissed this endorser: their decision stands.
+            // Rebuilds replace only rows awaiting review (see detectEndorsementsForStoredArticles).
+            if ($existing && $existing->status !== PoliticianEndorsement::STATUS_DETECTED) {
+                continue;
+            }
 
             $articleIds = array_unique(array_merge($existing?->detected_article_ids ?? [], [$articleId]));
 

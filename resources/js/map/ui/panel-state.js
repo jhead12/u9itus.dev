@@ -41,15 +41,20 @@ export function partyClass(p) {
 /**
  * Render issue/discourse topic chips from a candidate's `badges` array
  * (name/icon/color, capped at 4 by the Map API). Used on candidate cards and
- * the politician drawer hero. Badges may be self-declared or inferred from
- * news/viral-moment/Vote Smart signals (badge_type='inferred_discourse').
+ * the politician drawer hero. Badges may be self-declared, inferred from
+ * news/viral-moment/Vote Smart signals (badge_type='inferred_discourse'), or
+ * earned from tagged roll calls. A badge that states a position carries a
+ * `label` (e.g. "Voted to limit military action against Iran") shown in place
+ * of the topic name.
  */
 export function topicChipsHtml(badges) {
     if (!badges || !badges.length) return '';
     return badges.map(b => {
         const color = b.color || '#6366f1';
         const icon = b.icon ? `<span style="margin-right:2px;">${escapeHtml(b.icon)}</span>` : '';
-        return `<span class="topic-chip" style="background:${escapeHtml(color)}1a;border:1px solid ${escapeHtml(color)}40;color:${escapeHtml(color)};" title="${escapeHtml(b.name || '')}">${icon}${escapeHtml(b.name || '')}</span>`;
+        const text = b.label || b.name || '';
+        const title = b.label ? `${b.name}: ${b.label}` : (b.name || '');
+        return `<span class="topic-chip" style="background:${escapeHtml(color)}1a;border:1px solid ${escapeHtml(color)}40;color:${escapeHtml(color)};" title="${escapeHtml(title)}">${icon}${escapeHtml(text)}</span>`;
     }).join('');
 }
 

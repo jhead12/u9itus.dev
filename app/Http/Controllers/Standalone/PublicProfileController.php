@@ -1479,8 +1479,10 @@ class PublicProfileController extends Controller
         // public topic badges (self-declared + inferred discourse), rendered as
         // clickable chips that link to the browse page's structured topic filter.
         $issueContextTags = $politician->publicBadges
+            ->sortBy(fn ($badge) => $badge->stance_label ? 0 : 1)
             ->map(fn ($badge) => [
                 'name' => $badge->topic?->name ?? '',
+                'label' => $badge->stance_label,
                 'slug' => $badge->topic?->slug ?? '',
                 'color' => $badge->topic?->badge_color ?? '#6366f1',
                 'icon' => $badge->topic?->icon ?? null,

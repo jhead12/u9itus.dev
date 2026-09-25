@@ -82,9 +82,14 @@ export function renderPrintGuide(data, selectedKeys) {
             .map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('<br>');
         return `<p>${figures || 'Not recorded'}</p>${reference(f.source_url, `FEC filings${f.cycle ? `, ${f.cycle} cycle` : ''}`, f.coverage_end_date, 'Through')}`;
     };
+    // Editor-confirmed endorsements, each a numbered source; bill endorsements name the bill.
+    const endorsementCell = c => (c.endorsements ?? []).length
+        ? c.endorsements.map(e => `<div class="guide-statement"><p>${esc(e.endorser)}${e.role ? ` (${esc(e.role)})` : ''}: ${e.kind === 'bill' ? `endorsed their bill, ${esc(e.bill_title || 'bill not named')}` : 'endorsed the candidate'}</p>${reference(e.source_url, e.source_name || 'Source', e.reviewed_at, 'Reviewed')}</div>`).join('')
+        : '<p>None confirmed</p>';
     const profileRows = row('Political party', field('party')) + row('Current role', field('incumbency'))
         + row('Running status', field('candidacy'))
         + row('Campaign money', finance)
+        + (candidates.some(c => Array.isArray(c.endorsements)) ? row('Endorsements', endorsementCell) : '')
         + row('Record source', c => reference(c.profile_url, c.source_label, c.updated_at));
     const electionDate = guideDate(data.election?.date);
     const missing = selectedKeys.filter(key => !candidates.some(c => c.key === key));

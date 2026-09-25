@@ -930,18 +930,23 @@ class MapStateCandidatesController
 
     /**
      * Format a politician's public badges for the map candidate drawer.
-     * Limited to 4 to keep the badge row compact.
+     * Limited to 4 to keep the badge row compact; badges stating a position
+     * (a tagged vote, or speeches that clearly take a side) come first.
      *
-     * @return array<int, array{name: string, icon: ?string, color: string}>
+     * @return array<int, array{name: string, icon: ?string, color: string, label: ?string, stance: ?string, kind: string}>
      */
     private function formatBadges(Politician $pol): array
     {
         return $pol->publicBadges
+            ->sortBy(fn ($badge) => $badge->stance_label ? 0 : 1)
             ->take(4)
             ->map(fn ($badge) => [
-                'name'  => $badge->topic->name ?? '',
-                'icon'  => $badge->topic->badge_icon_url ?? $badge->topic->icon ?? null,
-                'color' => $badge->topic->badge_color ?? '#6366f1',
+                'name'   => $badge->topic->name ?? '',
+                'icon'   => $badge->topic->badge_icon_url ?? $badge->topic->icon ?? null,
+                'color'  => $badge->topic->badge_color ?? '#6366f1',
+                'label'  => $badge->stance_label,
+                'stance' => $badge->stance,
+                'kind'   => $badge->topic->kind ?? 'issue',
             ])
             ->values()
             ->all();

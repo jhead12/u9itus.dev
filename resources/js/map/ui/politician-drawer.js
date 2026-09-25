@@ -471,7 +471,7 @@ function renderPacBadges(pacAffiliations) {
         <p style="font-size:9px;color:#475569;margin:4px 0 0;">Inferred from campaign-finance contributor matching, not a confirmed public endorsement.</p>`;
 }
 
-/** Real, news-detected endorsements (e.g. "Governor Endorsed") — text-confirmed, not donor-inferred like the PAC badges below. */
+/** Editor-confirmed endorsements found in news (e.g. "Governor Endorsed", or backing for their bill) — not donor-inferred like the PAC badges below. */
 function renderEndorsementBadges(endorsements) {
     if (!endorsements?.length) return '';
     return `

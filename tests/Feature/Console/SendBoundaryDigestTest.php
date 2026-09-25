@@ -50,7 +50,9 @@ function digestEndorsement(Politician $politician, string $groupKey = 'teachers'
         'label' => 'Endorsed by Teachers Association',
         'matched_phrase' => 'endorsed by',
         'confidence' => 0.90,
-        'status' => 'detected',
+        // Only editor-confirmed endorsements are emailed.
+        'status' => 'confirmed',
+        'reviewed_at' => now(),
     ]);
 }
 
@@ -148,4 +150,25 @@ test('dry run does not send mail or update last_digest_sent_at', function () {
 
     Mail::assertNothingQueued();
     expect($voter->fresh()->last_digest_sent_at)->toBeNull();
+});
+
+test('unreviewed or dismissed endorsements are never included in a digest', function () {
+    Mail::fake();
+    $voter = digestVoterWithUser();
+    $politician = digestBoundaryFor($voter);
+    foreach (['detected', 'dismissed'] as $status) {
+        PoliticianEndorsement::create(['politician_id' => $politician->id, 'group_key' => $status, 'label' => 'Governor',
+            'matched_phrase' => 'endorses', 'confidence' => 0.9, 'status' => $status]);
+    }
+
+    $content = app(\App\Services\BoundaryDigestMatchService::class)->contentForVoter($voter->fresh(), now()->subWeek());
+    expect($content['total_item_count'])->toBe(0);
+    $this->artisan('notifications:boundary-digest')->assertExitCode(0);
+    Mail::assertNothingQueued();
+
+    $confirmed = PoliticianEndorsement::create(['politician_id' => $politician->id, 'group_key' => 'governor_ok', 'label' => 'Governor',
+        'endorser_name' => 'Gavin Newsom', 'matched_phrase' => 'endorses', 'confidence' => 0.9, 'status' => 'confirmed', 'reviewed_at' => now()]);
+    $content = app(\App\Services\BoundaryDigestMatchService::class)->contentForVoter($voter->fresh(), now()->subWeek());
+    expect($content['sections'][0]['candidates'][0]['endorsements']->pluck('id')->all())->toBe([$confirmed->id])
+        ->and($confirmed->summary())->toBe('Gavin Newsom (Governor) endorsed the candidate');
 });

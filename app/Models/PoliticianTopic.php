@@ -31,7 +31,15 @@ class PoliticianTopic extends Model
         // Matching vocabulary for news, bill titles and Congress.gov policy areas
         'keywords',
         'policy_areas',
+        // An ongoing issue or a current event, and what "for" and "against" mean for it
+        'kind',
+        'support_label',
+        'oppose_label',
     ];
+
+    public const KIND_ISSUE = 'issue';
+
+    public const KIND_CURRENT_EVENT = 'current_event';
 
     protected function casts(): array
     {
@@ -56,6 +64,23 @@ class PoliticianTopic extends Model
             'topic_id',
             'campaign_id'
         )->withTimestamps();
+    }
+
+    /**
+     * Only topics with both labels can show a position: "Opposes Education" is not one.
+     */
+    public function hasStanceLabels(): bool
+    {
+        return filled($this->support_label) && filled($this->oppose_label);
+    }
+
+    public function stanceLabel(?string $stance): ?string
+    {
+        return match ($stance) {
+            'support' => $this->support_label,
+            'oppose' => $this->oppose_label,
+            default => null,
+        };
     }
 
     /**

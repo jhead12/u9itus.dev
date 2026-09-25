@@ -29,6 +29,12 @@ class CongressionalRecordImporter
     // Shorter segments are colloquy ("I yield back") rather than a statement.
     private const MIN_WORDS = 60;
 
+    /**
+     * Where GovInfo found a bill in the article, most central first. Passing mentions
+     * ("OTHER") are left out: a speech cites many bills but is about one.
+     */
+    private const BILL_CONTEXT_RANK = ['TITLE' => 0, 'HEADERLINE' => 1, 'FIRSTPARAGRAPH' => 2];
+
     private const MODS_NS = 'http://www.loc.gov/mods/v3';
 
     private const USER_AGENT = 'U9itus-civic-enrichment/1.0 (+https://u9itus.dev/about)';
@@ -66,6 +72,9 @@ class CongressionalRecordImporter
                 continue;
             }
             if (! $refresh && CongressFloorSpeech::where('granule_id', $article['granule_id'])->exists()) {
+                // Speeches imported before bills were read get them without refetching text.
+                CongressFloorSpeech::where('granule_id', $article['granule_id'])->whereNull('bill_refs')
+                    ->update(['bill_refs' => json_encode($article['bills'])]);
                 $stats['skipped']++;
 
                 continue;
@@ -91,10 +100,11 @@ class CongressionalRecordImporter
                     'body' => $body,
                     'word_count' => $words,
                     'source_url' => $article['html_url'],
+                    'bill_refs' => $article['bills'],
                 ]);
                 if ($changed) {
                     // New wording needs a fresh topic/position read.
-                    $speech->fill(['topic_key' => null, 'topic_confidence' => null, 'stance' => null, 'position_summary' => null, 'quote' => null, 'analysis_method' => null, 'analyzed_at' => null]);
+                    $speech->fill(['topic_key' => null, 'topic_confidence' => null, 'stance' => null, 'position_summary' => null, 'quote' => null, 'topic_stance' => null, 'topic_source' => null, 'analysis_method' => null, 'analyzed_at' => null]);
                 }
                 $speech->save();
                 $stats['speeches']++;
@@ -107,7 +117,7 @@ class CongressionalRecordImporter
     /**
      * Substantive articles from a day's MODS, with speakers as [bioguide => printed label].
      *
-     * @return list<array{granule_id: string, title: string, chamber: string, kind: string, section: string, date: string, time: ?string, citation: ?string, html_url: string, speakers: array<string, string>}>
+     * @return list<array{granule_id: string, title: string, chamber: string, kind: string, section: string, date: string, time: ?string, citation: ?string, html_url: string, speakers: array<string, string>, bills: list<string>}>
      */
     public function articles(SimpleXMLElement $mods): array
     {
@@ -154,10 +164,38 @@ class CongressionalRecordImporter
                 'citation' => $text('m:identifier[@type="preferred citation"]') ?: null,
                 'html_url' => $htmlUrl,
                 'speakers' => $speakers,
+                'bills' => $this->billRefs($item),
             ];
         }
 
         return array_values(array_filter($articles, fn (array $a) => $a['granule_id'] !== '' && $a['date'] !== ''));
+    }
+
+    /**
+     * Bills the article is about, as "119-hr-3633" keys: only those in its most central
+     * place, so a bill named in the headline is not joined by ones in the first paragraph.
+     * A rule (an H.Res. "providing for consideration") sits in the first paragraph of the
+     * bill it brings up, so simple resolutions rank after any other bill in the same place.
+     *
+     * @return list<string>
+     */
+    protected function billRefs(SimpleXMLElement $item): array
+    {
+        $ranks = [];
+        foreach ($item->xpath('m:extension/m:bill') ?: [] as $bill) {
+            $rank = self::BILL_CONTEXT_RANK[strtoupper((string) $bill['context'])] ?? null;
+            $type = strtolower((string) $bill['type']);
+            if ($rank === null || ! ctype_digit((string) $bill['congress']) || ! ctype_digit((string) $bill['number']) || ! ctype_alpha($type)) {
+                continue;
+            }
+            $rank += in_array($type, ['hres', 'sres'], true) ? 3 : 0;
+            $key = (int) $bill['congress']."-{$type}-".(int) $bill['number'];
+            $ranks[$key] = min($ranks[$key] ?? PHP_INT_MAX, $rank);
+        }
+        asort($ranks);
+        $best = $ranks === [] ? null : reset($ranks);
+
+        return array_keys(array_filter($ranks, fn (int $rank) => $rank === $best));
     }
 
     /**
