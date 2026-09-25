@@ -118,7 +118,7 @@
             <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                 <p class="text-xs font-semibold uppercase tracking-wide {{ $color }} mb-1">{{ $label }}</p>
                 @if($data['has_money'])
-                    <p class="text-2xl font-bold text-white">{{ $money($data['net_raised']) }} <span class="text-sm font-normal text-slate-400">raised this year</span></p>
+                    <p class="text-2xl font-bold text-white">{{ $money($data['net_raised']) }} <span class="text-sm font-normal text-slate-400">raised{{ $data['year'] ? ' in '.$data['year'] : '' }}</span></p>
                     <p class="text-xs text-slate-400 mb-3 leading-relaxed">
                         @if($data['nonmonetary'] > 0)incl. {{ $money($data['nonmonetary']) }} non-cash · @endif
                         {{ $money($data['spent']) }} spent · {{ $money($data['cash']) }} cash on hand

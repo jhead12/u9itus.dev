@@ -1,0 +1,56 @@
+name: Import Florida Committee Finance
+
+# Pulls this year's contributions and expenditures from the Florida Division of Elections
+# for Florida committees linked to ballot measures, then re-audits the links. Florida has
+# no bulk export, so the importer queries one committee at a time and paces its requests.
+on:
+  schedule:
+    - cron: "30 10 * * *"   # 10:30 UTC daily, after the CAL-ACCESS import
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run — report only, no DB writes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import Florida totals
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
+
+      - name: Import committee activity
+        run: |
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+          php artisan ballot-measures:import-florida $DRY_ARG
+
+      - name: Audit ballot measure committee links
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: php artisan ballot-measures:audit-committee-links

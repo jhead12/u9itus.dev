@@ -212,16 +212,8 @@ class MeasureCommitteeRules
             $flags[] = 'filing_name_mismatch';
         }
 
-        $declared = self::latestDeclaration($link);
-        if ($declared !== null && $measure !== null) {
-            $number = self::normalizeMeasureNumber($measure->measure_number);
-            if ($declared->declared_measure_number !== null && $number !== ''
-                && self::normalizeMeasureNumber($declared->declared_measure_number) !== $number) {
-                $flags[] = 'filing_measure_conflict';
-            }
-            if ($declared->declared_position !== null && $declared->declared_position !== $link->position) {
-                $flags[] = 'filing_position_conflict';
-            }
+        if ($measure !== null) {
+            array_push($flags, ...self::declarationFlags($link, $measure));
         }
 
         $upcoming = $measure !== null && ! in_array($measure->status, ['passed', 'failed'], true)
@@ -260,7 +252,8 @@ class MeasureCommitteeRules
     /**
      * Contributions a committee made that its filings tie to this measure. Measure numbers
      * repeat across years and places, so only transfers within two years before the election
-     * count, and a statewide measure only matches statewide references.
+     * count, a statewide measure only matches statewide references, and a local measure only
+     * matches references naming its city or county.
      *
      * @return Collection<int, CommitteeTransfer>
      */
@@ -276,29 +269,126 @@ class MeasureCommitteeRules
             ->where('state', strtoupper((string) $measure->state))
             ->where('measure_number', self::normalizeMeasureNumber($measure->measure_number))
             ->when($measure->election_date !== null, fn ($q) => $q->where('latest_on', '>=', $measure->election_date->copy()->subYears(2)->toDateString()))
-            ->when($measure->level === 'state', fn ($q) => $q->where(fn ($q) => $q->whereNull('measure_jurisdiction')->orWhere('measure_jurisdiction', 'like', '%STATE%')));
+            ->when($measure->level === 'state', fn ($q) => $q->where(fn ($q) => $q->whereNull('measure_jurisdiction')->orWhere('measure_jurisdiction', 'like', '%STATE%')))
+            // Every city and district has a "Measure A", so a local measure needs a reference that names its place.
+            ->when($measure->level !== 'state', function ($q) use ($measure) {
+                $places = array_filter([$measure->locality, trim((string) preg_replace('/\s+county$/i', '', (string) $measure->county))]);
+                $q->where(function ($q) use ($places) {
+                    foreach ($places as $place) {
+                        $q->orWhere('measure_reference', 'like', '%'.$place.'%')->orWhere('measure_jurisdiction', 'like', '%'.$place.'%');
+                    }
+                    if ($places === []) {
+                        $q->whereRaw('1 = 0');
+                    }
+                });
+            });
     }
 
-    /** True when the committee's latest filing declaring a measure names this measure and side. */
+    /** True when the committee's latest declaring filing names this measure and side. */
     public static function confirmedByFiling(BallotMeasureCommittee $link): bool
     {
-        $declared = self::latestDeclaration($link);
         $measure = $link->ballotMeasure;
+        if ($measure === null) {
+            return false;
+        }
 
-        return $declared !== null && $measure !== null
-            && $declared->declared_position === $link->position
-            && $declared->declared_measure_number !== null
-            && self::normalizeMeasureNumber($declared->declared_measure_number) === self::normalizeMeasureNumber($measure->measure_number);
+        return collect(self::declarations($link))
+            ->contains(fn (array $d) => self::declarationMatches($d, $measure) && $d['position'] === $link->position);
     }
 
-    private static function latestDeclaration(BallotMeasureCommittee $link): ?CommitteeFinanceSnapshot
+    /**
+     * Compares the link with the measures the committee has declared. Declarations are
+     * messy — Texas committees write "Prop A", "State Prop" or "Amendments 2, 5-10", often
+     * without naming the city, and broad PACs declare many measures — so this stays
+     * conservative:
+     *  - opposite side: a declaration fully matches this measure (number, election and
+     *    place), and none takes the link's side.
+     *  - different measure: the committee declared exactly one measure for this election,
+     *    and its number isn't this one (a single-purpose committee pointed at the wrong
+     *    measure). A declaration that just doesn't name the place isn't a conflict.
+     *
+     * @return list<string>
+     */
+    private static function declarationFlags(BallotMeasureCommittee $link, BallotMeasure $measure): array
     {
+        $declarations = self::declarations($link);
+        if ($declarations === [] || self::normalizeMeasureNumber($measure->measure_number) === '') {
+            return [];
+        }
+
+        $flags = [];
+        $matching = array_filter($declarations, fn (array $d) => self::declarationMatches($d, $measure));
+        $positions = array_filter(array_column($matching, 'position'));
+        if ($positions !== [] && ! in_array($link->position, $positions, true)) {
+            $flags[] = 'filing_position_conflict';
+        }
+
+        $sameElection = array_values(array_filter($declarations, fn (array $d) => ! self::differentElection($d, $measure)));
+        if (count($sameElection) === 1 && ($sameElection[0]['number'] ?? null) !== null
+            && self::normalizeMeasureNumber($sameElection[0]['number']) !== self::normalizeMeasureNumber($measure->measure_number)) {
+            $flags[] = 'filing_measure_conflict';
+        }
+
+        return $flags;
+    }
+
+    /**
+     * A declaration names this measure: same number, same election (when both dates are
+     * known), and — for a local measure — a description that names its place, since every
+     * city and school district has a "Prop A".
+     *
+     * @param  array<string, ?string>  $declaration
+     */
+    private static function declarationMatches(array $declaration, BallotMeasure $measure): bool
+    {
+        if (self::normalizeMeasureNumber($declaration['number'] ?? null) !== self::normalizeMeasureNumber($measure->measure_number)
+            || self::differentElection($declaration, $measure)) {
+            return false;
+        }
+
+        $description = self::normalizeName($declaration['description'] ?? '');
+        if ($measure->level === 'state' || $description === '') {
+            return true;
+        }
+
+        foreach ([$measure->locality, $measure->county] as $place) {
+            $place = trim((string) preg_replace('/\b(county|city of|city|town of|isd)\b/', '', self::normalizeName($place)));
+            if ($place !== '' && str_contains($description, $place)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param  array<string, ?string>  $declaration */
+    private static function differentElection(array $declaration, BallotMeasure $measure): bool
+    {
+        return ! empty($declaration['election_date']) && $measure->election_date !== null
+            && $declaration['election_date'] !== $measure->election_date->toDateString();
+    }
+
+    /**
+     * Every measure the committee declared on filings from the two years before the
+     * measure's election (all imported filings if it has no date), without duplicates.
+     * Committees often declare next year's measures before this one is decided, so looking
+     * only at the latest filing would miss this measure.
+     *
+     * @return list<array{number: ?string, position: ?string, election_date: ?string, description: ?string}>
+     */
+    private static function declarations(BallotMeasureCommittee $link): array
+    {
+        $election = $link->ballotMeasure?->election_date;
+
         return CommitteeFinanceSnapshot::query()
             ->where('state', strtoupper((string) $link->state))
             ->where('committee_id', $link->committee_id)
-            ->where(fn ($q) => $q->whereNotNull('declared_measure_number')->orWhereNotNull('declared_position'))
-            ->orderByDesc('period_end')->orderByDesc('id')
-            ->first();
+            ->where(fn ($q) => $q->whereNotNull('declared_measures')->orWhereNotNull('declared_measure_number')->orWhereNotNull('declared_position'))
+            ->when($election !== null, fn ($q) => $q->where('period_end', '>=', $election->copy()->subYears(2)->toDateString()))
+            ->get()
+            ->flatMap(fn (CommitteeFinanceSnapshot $s) => $s->declaredMeasures())
+            ->unique(fn (array $d) => mb_strtoupper(($d['number'] ?? '').'|'.($d['position'] ?? '').'|'.($d['election_date'] ?? '').'|'.($d['description'] ?? '')))
+            ->values()->all();
     }
 
     /**
@@ -319,10 +409,17 @@ class MeasureCommitteeRules
         return $percent >= 85;
     }
 
-    /** The first measure number a text names ("PROPOSITION 40: WEALTH TAX" → "40"), or null. */
+    /**
+     * The first measure number a text names ("PROPOSITION 40: WEALTH TAX" → "40",
+     * "Vote Yes on 2 PC" → "2"), or null.
+     */
     public static function measureNumberFrom(?string $text): ?string
     {
-        return preg_match(self::MEASURE_REFERENCE, (string) $text, $m) ? strtoupper($m[1]) : null;
+        if (preg_match(self::MEASURE_REFERENCE, (string) $text, $m)) {
+            return strtoupper($m[1]);
+        }
+
+        return preg_match('/\b(?:vote\s+)?(?:yes|no)\s+on\s+#?(\d{1,4}[A-Z]?)\b/i', (string) $text, $m) ? strtoupper($m[1]) : null;
     }
 
     /** The side a committee name announces ("No on 40 …" → oppose), or null if it doesn't. */

@@ -3,15 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\BallotMeasureCommittee;
-use App\Models\CommitteeDonor;
-use App\Models\CommitteeFiler;
-use App\Models\CommitteeFinanceSnapshot;
-use App\Models\CommitteeTransfer;
 use App\Services\CampaignFinance\CalAccessExport;
+use App\Services\CampaignFinance\CommitteeFinanceWriter;
 use App\Support\MeasureCommitteeRules;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -49,9 +45,6 @@ class ImportCalAccessCommitteeFinance extends Command
     /** Form 460 summary-page lines we keep. */
     private const LINES = ['4', '5', '11', '16'];
 
-    /** Individual donors kept per committee and year; committee donors are always kept. */
-    private const TOP_DONORS = 25;
-
     /** Contributions a committee made are kept from this many years back, for link suggestions. */
     private const TRANSFER_YEARS = 2;
 
@@ -59,6 +52,7 @@ class ImportCalAccessCommitteeFinance extends Command
     {
         $startedAt = now();
         $dryRun = (bool) $this->option('dry-run');
+        $writer = new CommitteeFinanceWriter('CA', 'cal-access', 'cal-access-finance');
 
         $committeeIds = BallotMeasureCommittee::query()
             ->where('state', 'CA')
@@ -68,7 +62,9 @@ class ImportCalAccessCommitteeFinance extends Command
 
         if ($committeeIds === []) {
             $this->info('No California committees are linked to ballot measures; nothing to import.');
-            $this->recordMetrics($startedAt, 0, 0, [], $dryRun);
+            if (! $dryRun) {
+                $writer->recordMetrics($startedAt, 0, 0, []);
+            }
 
             return self::SUCCESS;
         }
@@ -95,51 +91,47 @@ class ImportCalAccessCommitteeFinance extends Command
         foreach (array_keys($committeeIds) as $committeeId) {
             $committeeId = (string) $committeeId;
             $filer = $filers[$committeeId] ?? null;
-            $previous = CommitteeFinanceSnapshot::latestFor('CA', $committeeId);
+            $previous = $writer->latest($committeeId);
 
             $committeeFilings = array_filter($filings, fn ($cover) => $cover['committee_id'] === $committeeId);
             $written += count($committeeFilings);
 
-            if (! $dryRun) {
-                DB::transaction(function () use ($committeeId, $filer, $committeeFilings, $amounts, $latestPeriod, $late, $donors, $transfers) {
-                    CommitteeFiler::updateOrCreate(
-                        ['state' => 'CA', 'committee_id' => $committeeId],
-                        [
-                            'source' => 'cal-access',
-                            'found' => $filer !== null,
-                            'filer_name' => $filer['name'] ?? null,
-                            'latest_filing_on' => $filer['latest'] ?? null,
-                            'late_contributions' => isset($latestPeriod[$committeeId]) ? ($late[$committeeId] ?? 0.0) : null,
-                            'late_since' => $latestPeriod[$committeeId] ?? null,
-                            'checked_at' => now(),
-                        ],
-                    );
-
-                    foreach ($committeeFilings as $filingId => $cover) {
-                        $this->saveSnapshot($committeeId, (string) $filingId, $cover, $amounts[$filingId] ?? []);
-                    }
-
-                    $this->saveDonors($committeeId, $latestPeriod[$committeeId] ?? null, $donors[$committeeId] ?? []);
-                    $this->saveTransfers($committeeId, $transfers[$committeeId] ?? []);
-                });
+            if ($dryRun) {
+                continue;
             }
 
-            $latest = $dryRun ? null : CommitteeFinanceSnapshot::latestFor('CA', $committeeId);
-            if ($this->totalDecreased($previous, $latest)) {
-                $anomalies['total_decreased'] = ($anomalies['total_decreased'] ?? 0) + 1;
-                $this->warn("CA {$committeeId}: calendar-year contributions fell from {$previous->contributions_ytd} to {$latest->contributions_ytd} (filing {$latest->filing_id}).");
-            }
+            $writer->transaction(function () use ($writer, $committeeId, $filer, $committeeFilings, $amounts, $latestPeriod, $late, $donors, $transfers) {
+                $writer->saveFiler($committeeId, [
+                    'found' => $filer !== null,
+                    'filer_name' => $filer['name'] ?? null,
+                    'latest_filing_on' => $filer['latest'] ?? null,
+                    'late_contributions' => isset($latestPeriod[$committeeId]) ? ($late[$committeeId] ?? 0.0) : null,
+                    'late_since' => $latestPeriod[$committeeId] ?? null,
+                ]);
+
+                foreach ($committeeFilings as $filingId => $cover) {
+                    $writer->saveSnapshot($committeeId, (string) $filingId, $this->snapshotAttributes($cover, $amounts[$filingId] ?? []));
+                }
+
+                if (isset($latestPeriod[$committeeId])) {
+                    $writer->saveDonors($committeeId, (int) substr($latestPeriod[$committeeId], 0, 4), $donors[$committeeId] ?? []);
+                }
+                $writer->saveTransfers($committeeId, $transfers[$committeeId] ?? []);
+            });
 
             $itemized = array_sum(array_map(fn ($d) => $d['amount'] - $d['late'], $donors[$committeeId] ?? []));
-            if ($latest?->contributions_ytd !== null && $itemized > $latest->contributions_ytd * 1.01 + 1) {
-                $anomalies['itemized_exceeds_total'] = ($anomalies['itemized_exceeds_total'] ?? 0) + 1;
-                $this->warn("CA {$committeeId}: itemized contributions ({$itemized}) exceed the reported total ({$latest->contributions_ytd}).");
+            foreach ($writer->anomalies($previous, $writer->latest($committeeId), $itemized) as $anomaly) {
+                $anomalies[$anomaly] = ($anomalies[$anomaly] ?? 0) + 1;
+                $this->warn("CA {$committeeId}: {$anomaly}");
             }
+        }
+
+        if (! $dryRun) {
+            $writer->recordMetrics($startedAt, array_sum($anomalies), $written, $anomalies);
         }
 
         $found = count($filers);
         $missing = count($committeeIds) - $found;
-        $this->recordMetrics($startedAt, array_sum($anomalies), $written, $anomalies, $dryRun);
         $this->info(($dryRun ? '[dry run] ' : '').'Checked '.count($committeeIds)." CA committee(s): {$found} found, {$missing} not found; {$written} Form 460 filing(s), "
             .array_sum(array_map('count', $donors)).' donor(s), '.array_sum(array_map('count', $transfers)).' transfer(s); '.array_sum($anomalies).' anomaly(ies).');
 
@@ -385,84 +377,25 @@ class ImportCalAccessCommitteeFinance extends Command
     /**
      * @param  array<string, mixed>  $cover
      * @param  array<string, array{a: ?float, b: ?float}>  $lines
+     * @return array<string, mixed>
      */
-    private function saveSnapshot(string $committeeId, string $filingId, array $cover, array $lines): void
+    private function snapshotAttributes(array $cover, array $lines): array
     {
-        CommitteeFinanceSnapshot::updateOrCreate(
-            ['state' => 'CA', 'committee_id' => $committeeId, 'filing_id' => $filingId],
-            [
-                'source' => 'cal-access',
-                'amend_id' => $cover['amend_id'],
-                'form_type' => 'F460',
-                'period_start' => $cover['from'],
-                'period_end' => $cover['thru'],
-                'filed_on' => $cover['filed'],
-                'contributions_period' => $lines['5']['a'] ?? null,
-                'contributions_ytd' => $lines['5']['b'] ?? null,
-                'nonmonetary_ytd' => $lines['4']['b'] ?? null,
-                'expenditures_ytd' => $lines['11']['b'] ?? null,
-                'cash_on_hand' => $lines['16']['a'] ?? null,
-                'declared_measure_number' => $cover['bal_num'],
-                'declared_measure_name' => $cover['bal_name'],
-                'declared_position' => $cover['position'],
-            ],
-        );
-    }
-
-    /**
-     * Replaces the committee's donors for the year: the top individual donors, plus every
-     * donor that is itself a committee (so transfers between linked committees can be netted).
-     *
-     * @param  array<string, array<string, mixed>>  $donors
-     */
-    private function saveDonors(string $committeeId, ?string $latestPeriod, array $donors): void
-    {
-        if ($latestPeriod === null) {
-            return;
-        }
-
-        $year = (int) substr($latestPeriod, 0, 4);
-        CommitteeDonor::query()->where('state', 'CA')->where('committee_id', $committeeId)->where('year', $year)->delete();
-
-        $sorted = collect($donors)->sortByDesc('amount')->values();
-        $keep = $sorted->filter(fn ($d, $i) => $i < self::TOP_DONORS || $d['donor_committee_id'] !== null);
-
-        foreach ($keep as $donor) {
-            CommitteeDonor::create($donor + ['state' => 'CA', 'committee_id' => $committeeId, 'year' => $year]);
-        }
-    }
-
-    /**
-     * Upserts contributions the committee made to other committees, keeping any admin's
-     * decision to dismiss a suggestion.
-     *
-     * @param  array<string, array<string, mixed>>  $transfers
-     */
-    private function saveTransfers(string $committeeId, array $transfers): void
-    {
-        foreach ($transfers as $transfer) {
-            CommitteeTransfer::updateOrCreate(
-                [
-                    'state' => 'CA',
-                    'from_committee_id' => $committeeId,
-                    'to_committee_id' => $transfer['to_committee_id'],
-                    'measure_number' => $transfer['measure_number'],
-                ],
-                $transfer,
-            );
-        }
-    }
-
-    /** A later filing in the same calendar year reporting less raised year to date. */
-    private function totalDecreased(?CommitteeFinanceSnapshot $previous, ?CommitteeFinanceSnapshot $latest): bool
-    {
-        return $previous !== null && $latest !== null
-            && $previous->filing_id !== $latest->filing_id
-            && $previous->period_end !== null && $latest->period_end !== null
-            && $previous->period_end->year === $latest->period_end->year
-            && $latest->period_end->gte($previous->period_end)
-            && $previous->contributions_ytd !== null && $latest->contributions_ytd !== null
-            && $latest->contributions_ytd < $previous->contributions_ytd;
+        return [
+            'amend_id' => $cover['amend_id'],
+            'form_type' => 'F460',
+            'period_start' => $cover['from'],
+            'period_end' => $cover['thru'],
+            'filed_on' => $cover['filed'],
+            'contributions_period' => $lines['5']['a'] ?? null,
+            'contributions_ytd' => $lines['5']['b'] ?? null,
+            'nonmonetary_ytd' => $lines['4']['b'] ?? null,
+            'expenditures_ytd' => $lines['11']['b'] ?? null,
+            'cash_on_hand' => $lines['16']['a'] ?? null,
+            'declared_measure_number' => $cover['bal_num'],
+            'declared_measure_name' => $cover['bal_name'],
+            'declared_position' => $cover['position'],
+        ];
     }
 
     private function position(string $code): ?string
@@ -498,27 +431,5 @@ class ImportCalAccessCommitteeFinance extends Command
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    /** @param  array<string, int>  $breakdown */
-    private function recordMetrics(Carbon $startedAt, int $findings, int $written, array $breakdown, bool $dryRun): void
-    {
-        if ($dryRun) {
-            return;
-        }
-
-        DB::table('politician_cleanup_run_metrics')->insert([
-            'step' => 'cal-access-finance',
-            'scope' => 'CA',
-            'exit_code' => self::SUCCESS,
-            'findings_count' => $findings,
-            'auto_applied_count' => $written,
-            'queued_count' => 0,
-            'breakdown' => json_encode($breakdown),
-            'started_at' => $startedAt,
-            'finished_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 }

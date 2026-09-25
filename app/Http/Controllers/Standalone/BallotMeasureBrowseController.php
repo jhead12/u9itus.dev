@@ -79,7 +79,7 @@ class BallotMeasureBrowseController extends Controller
         // Only verified links: a committee name rarely says which side it's on, so an
         // unchecked link could tell voters the wrong thing.
         $verified = $measure->committees()->verified()->orderBy('committee_name')->get();
-        $funding = $verified->isNotEmpty() ? MeasureFunding::forCommittees($verified) : [];
+        $funding = $verified->isNotEmpty() ? MeasureFunding::forCommittees($verified, $measure) : [];
         $financeUrl = MeasureCommitteeRules::financeRegistryUrl((string) $measure->state);
 
         return view('standalone.voter.ballot-measures.show', compact('measure', 'isFavorited', 'funding', 'financeUrl'));

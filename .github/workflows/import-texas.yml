@@ -1,0 +1,60 @@
+name: Import Texas Committee Finance
+
+# Downloads the Texas Ethics Commission's nightly campaign finance export (~1 GB) once and
+# imports report totals, donors, declared measures and transfers for Texas committees
+# linked to ballot measures, then re-audits the links. One full download per night: the
+# Commission's CDN blocks bursts of small requests.
+on:
+  schedule:
+    - cron: "0 11 * * *"   # 11:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run — report only, no DB writes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import Texas totals
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
+
+      - name: Download Texas Ethics Commission export
+        run: curl --fail --silent --show-error --location --retry 3 -o "$RUNNER_TEMP/TEC_CF_CSV.zip" https://prd.tecprd.ethicsefile.com/public/cf/public/TEC_CF_CSV.zip
+
+      - name: Import committee totals
+        run: |
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+          php artisan ballot-measures:import-texas --file="$RUNNER_TEMP/TEC_CF_CSV.zip" $DRY_ARG
+
+      - name: Audit ballot measure committee links
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: php artisan ballot-measures:audit-committee-links

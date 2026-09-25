@@ -8,6 +8,7 @@ use App\Models\BallotMeasureCommittee;
 use App\Models\CommitteeTransfer;
 use App\Models\ElectionDataSource;
 use App\Services\CampaignFinance\CalAccessExport;
+use App\Services\CampaignFinance\FloridaElectionsClient;
 use App\Support\MeasureCommitteePriority;
 use App\Support\MeasureCommitteeRules;
 use App\Support\PoliticianDataRules;
@@ -26,6 +27,14 @@ use Illuminate\View\View;
  */
 class AdminBallotMeasureCommitteeController extends Controller
 {
+    /** Each imported state's public committee page, used as the evidence link for suggestions. */
+    private const COMMITTEE_URLS = [
+        'CA' => CalAccessExport::COMMITTEE_URL,
+        'FL' => FloridaElectionsClient::COMMITTEE_URL,
+        // The Commission has no stable per-filer page, so this is its search, with the ID for reference.
+        'TX' => 'https://www.ethics.state.tx.us/search/cf/?filer=%s',
+    ];
+
     /** Pending links across every measure, highest risk priority first. */
     public function index(): View
     {
@@ -72,7 +81,7 @@ class AdminBallotMeasureCommitteeController extends Controller
             'committee_id' => $committeeId,
             'committee_name' => $transfer->to_committee_name,
             'position' => $position,
-            'source_url' => sprintf(CalAccessExport::COMMITTEE_URL, rawurlencode($committeeId)),
+            'source_url' => sprintf(self::COMMITTEE_URLS[strtoupper((string) $ballotMeasure->state)] ?? CalAccessExport::COMMITTEE_URL, rawurlencode($committeeId)),
             'status' => BallotMeasureCommittee::STATUS_PENDING,
             'created_by_user_id' => $request->user()->id,
         ]);

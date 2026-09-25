@@ -52,7 +52,7 @@ class BallotMeasureCommittee extends Model
         // verified.
         static::saving(function (self $link): void {
             $link->state = strtoupper(trim((string) $link->state));
-            $link->committee_id = trim((string) $link->committee_id);
+            $link->committee_id = self::normalizeCommitteeId($link->state, (string) $link->committee_id);
             $link->committee_name = trim((string) $link->committee_name);
             $link->position = strtolower(trim((string) $link->position));
 
@@ -67,6 +67,19 @@ class BallotMeasureCommittee extends Model
                 throw new \InvalidArgumentException("Committee link can't be verified: its state doesn't match the measure's state.");
             }
         });
+    }
+
+    /**
+     * Texas filer IDs are eight digits with leading zeros ("00085302"), but are often
+     * written without them; store the form the state's data uses.
+     */
+    public static function normalizeCommitteeId(?string $state, string $committeeId): string
+    {
+        $committeeId = trim($committeeId);
+
+        return strtoupper(trim((string) $state)) === 'TX' && ctype_digit($committeeId) && strlen($committeeId) < 8
+            ? str_pad($committeeId, 8, '0', STR_PAD_LEFT)
+            : $committeeId;
     }
 
     public function ballotMeasure(): BelongsTo
