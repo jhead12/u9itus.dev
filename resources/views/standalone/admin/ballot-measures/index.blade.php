@@ -14,6 +14,8 @@
             </p>
         </div>
         <div class="flex items-center gap-3">
+            <a href="{{ route('admin.ballot-measure-committees.index') }}"
+               class="px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition whitespace-nowrap">Committee review queue</a>
             <a href="{{ route('admin.ballot-measures.import') }}"
                class="px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold transition whitespace-nowrap">
                 Import voter guide
@@ -92,6 +94,8 @@
                     <td class="px-5 py-3.5 hidden sm:table-cell text-slate-500 text-xs">{{ $measure->source }}</td>
                     <td class="px-5 py-3.5 text-right">
                         <div class="flex items-center justify-end gap-2">
+                            <a href="{{ route('admin.ballot-measures.committees', $measure) }}"
+                               class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition">Committees</a>
                             <a href="{{ route('admin.ballot-measures.edit', $measure) }}"
                                class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition">Edit</a>
                             <form method="POST" action="{{ route('admin.ballot-measures.destroy', $measure) }}"

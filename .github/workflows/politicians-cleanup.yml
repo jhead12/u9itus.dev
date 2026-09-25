@@ -76,6 +76,17 @@ jobs:
 
           php artisan politicians:cleanup-workflow --scope="$SCOPE" $STATE_ARG $DRY_ARG
 
+      # Re-checks ballot measure committee links for mis-assignment and reports to the
+      # same run metrics the health check reads.
+      - name: Audit ballot measure committee links
+        if: ${{ !cancelled() }}
+        run: |
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+          php artisan ballot-measures:audit-committee-links $DRY_ARG
+
       # Runs even when the cleanup step failed (a failed step is exactly what the silence
       # check exists to report), but not for dry runs, which write no reviews to compare.
       - name: Check pipeline health

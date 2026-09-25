@@ -50,6 +50,7 @@ use App\Http\Controllers\Standalone\AdminTopicController;
 use App\Http\Controllers\Standalone\AdminCauseController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureController;
 use App\Http\Controllers\Standalone\AdminBallotMeasureImportController;
+use App\Http\Controllers\Standalone\AdminBallotMeasureCommitteeController;
 use App\Http\Controllers\Standalone\PublicProfileController;
 use App\Http\Controllers\Standalone\CommitteeController;
 use App\Http\Controllers\Standalone\ProfileClaimController;
@@ -854,6 +855,17 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::get('/ballot-measures/{ballotMeasure}/edit', [AdminBallotMeasureController::class, 'edit'])->name('ballot-measures.edit');
         Route::put('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'update'])->name('ballot-measures.update');
         Route::delete('/ballot-measures/{ballotMeasure}', [AdminBallotMeasureController::class, 'destroy'])->name('ballot-measures.destroy');
+
+        // Ballot measure committees — who funds each side; verified links show to voters
+        Route::get('/ballot-measure-committees', [AdminBallotMeasureCommitteeController::class, 'index'])->name('ballot-measure-committees.index');
+        Route::get('/ballot-measures/{ballotMeasure}/committees', [AdminBallotMeasureCommitteeController::class, 'show'])->name('ballot-measures.committees');
+        Route::post('/ballot-measures/{ballotMeasure}/committees', [AdminBallotMeasureCommitteeController::class, 'store'])->name('ballot-measures.committees.store');
+        Route::put('/ballot-measures/{ballotMeasure}/finance-url', [AdminBallotMeasureCommitteeController::class, 'updateFinanceUrl'])->name('ballot-measures.finance-url');
+        Route::post('/ballot-measures/{ballotMeasure}/committee-suggestions/{committeeId}/link', [AdminBallotMeasureCommitteeController::class, 'linkSuggestion'])->name('ballot-measures.committee-suggestions.link');
+        Route::post('/ballot-measures/{ballotMeasure}/committee-suggestions/{committeeId}/dismiss', [AdminBallotMeasureCommitteeController::class, 'dismissSuggestion'])->name('ballot-measures.committee-suggestions.dismiss');
+        Route::post('/ballot-measure-committees/{committee}/verify', [AdminBallotMeasureCommitteeController::class, 'verify'])->name('ballot-measure-committees.verify');
+        Route::post('/ballot-measure-committees/{committee}/reject', [AdminBallotMeasureCommitteeController::class, 'reject'])->name('ballot-measure-committees.reject');
+        Route::delete('/ballot-measure-committees/{committee}', [AdminBallotMeasureCommitteeController::class, 'destroy'])->name('ballot-measure-committees.destroy');
 
         // Admin Profile (Phase 11)
         Route::get('/profile', [AdminController::class, 'profile'])->name('profile');

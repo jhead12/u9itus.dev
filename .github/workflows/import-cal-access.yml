@@ -1,0 +1,60 @@
+name: Import CAL-ACCESS Committee Finance
+
+# Downloads the California Secretary of State's daily CAL-ACCESS export (~1.6 GB) and
+# imports Form 460 totals for committees linked to ballot measures, then re-audits the
+# links so filing-based warnings (wrong filer ID, a filing that declares the other side)
+# show up the same day. The export is refreshed around 09:00 UTC.
+on:
+  schedule:
+    - cron: "0 10 * * *"   # 10:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run — report only, no DB writes"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: civic-data-writes
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import CAL-ACCESS totals
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up app
+        uses: ./.github/actions/setup-app
+        with:
+          app_key: ${{ secrets.APP_KEY }}
+          app_url: ${{ secrets.APP_URL }}
+          db_host: ${{ secrets.DB_HOST }}
+          db_port: ${{ secrets.DB_PORT }}
+          db_database: ${{ secrets.DB_DATABASE }}
+          db_username: ${{ secrets.DB_USERNAME }}
+          db_password: ${{ secrets.DB_PASSWORD }}
+          fec_api_key: ${{ secrets.FEC_API_KEY }}
+
+      - name: Download CAL-ACCESS export
+        run: curl --fail --silent --show-error --location --retry 3 -o "$RUNNER_TEMP/dbwebexport.zip" https://campaignfinance.cdn.sos.ca.gov/dbwebexport.zip
+
+      - name: Import committee totals
+        run: |
+          DRY_ARG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_ARG="--dry-run"
+          fi
+          php artisan ballot-measures:import-cal-access --file="$RUNNER_TEMP/dbwebexport.zip" $DRY_ARG
+
+      - name: Audit ballot measure committee links
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: php artisan ballot-measures:audit-committee-links
