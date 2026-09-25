@@ -115,6 +115,8 @@ return [
     'admin.platform-settings.delete' => 'settings.manage',
     'admin.platform-settings.clear-cache' => 'settings.manage',
     'admin.platform-settings.guest-trial' => 'settings.manage',
+    'admin.endorsements.index' => 'civic.view',
+    'admin.endorsements.review' => 'civic.edit',
     'admin.politician-chatter.index' => 'chatter.view',
     'admin.politician-chatter.store' => 'chatter.create',
     'admin.politician-chatter.update' => 'chatter.edit',

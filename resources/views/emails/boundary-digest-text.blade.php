@@ -14,7 +14,7 @@ Hi {!! $plain($voter->full_name ?: 'there') !!},
 @foreach ($section['candidates'] as $row)
 - {!! $plain($row['politician']->full_name) !!}
 @foreach ($row['endorsements'] as $endorsement)
-  * Endorsement: {!! $plain($endorsement->label) !!}
+  * Endorsement: {!! $plain($endorsement->summary()) !!}
 @endforeach
 @foreach ($row['videos'] as $video)
   * Video: {!! $plain($video->title) !!} — {{ $video->url }}{{ $video->view_count ? ' (' . number_format($video->view_count) . ' views)' : '' }}

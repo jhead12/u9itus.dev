@@ -60,7 +60,7 @@
             <p class="candidate-name">{{ $row['politician']->full_name }}</p>
 
             @foreach ($row['endorsements'] as $endorsement)
-              <p class="item"><span class="badge badge-endorsement">Endorsement</span>{{ $endorsement->label }}</p>
+              <p class="item"><span class="badge badge-endorsement">Endorsement</span>{{ $endorsement->summary() }}</p>
             @endforeach
 
             @foreach ($row['videos'] as $video)

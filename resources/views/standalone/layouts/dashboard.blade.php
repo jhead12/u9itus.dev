@@ -387,6 +387,7 @@
                         'Candidates & Data' => [
                             ['route' => 'admin.candidate-matches.index', 'label' => 'Candidate matches', 'pattern' => 'admin.candidate-matches.index'],
                             ['route' => 'admin.data-quality.index', 'label' => 'Data quality', 'pattern' => 'admin.data-quality.index'],
+                            ['route' => 'admin.endorsements.index', 'label' => 'Endorsement review', 'pattern' => 'admin.endorsements.index'],
                             ['route' => 'admin.data-reports.index', 'label' => 'Data reports', 'pattern' => 'admin.data-reports.index'],
                             ['route' => 'admin.office-profiles.index', 'label' => 'Office profiles', 'pattern' => 'admin.office-profiles.index'],
                             ['route' => 'admin.topics.index', 'label' => 'Topics', 'pattern' => 'admin.topics.index'],

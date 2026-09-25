@@ -59,10 +59,11 @@ class BoundaryDigestMatchService
                         ->limit(3)
                         ->get();
 
+                    // Only editor-confirmed endorsements, new since the last digest by confirmation time.
                     $endorsements = PoliticianEndorsement::query()
-                        ->active()
+                        ->confirmed()
                         ->where('politician_id', $politician->id)
-                        ->where('created_at', '>=', $since)
+                        ->where('reviewed_at', '>=', $since)
                         ->get();
 
                     // Popular YouTube clips only (not C-SPAN/podcast sources) —

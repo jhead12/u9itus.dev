@@ -721,6 +721,8 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::patch('/data-reports/{report}', [AdminDataReportController::class, 'update'])->name('data-reports.update');
 
         // Public-chatter collection and human editorial review.
+        Route::get('/endorsements', [\App\Http\Controllers\Standalone\AdminEndorsementController::class, 'index'])->name('endorsements.index');
+        Route::post('/endorsements/{endorsement}/review', [\App\Http\Controllers\Standalone\AdminEndorsementController::class, 'review'])->name('endorsements.review');
         Route::get('/politician-chatter', [AdminPoliticianChatterController::class, 'index'])->name('politician-chatter.index');
         Route::post('/politician-chatter', [AdminPoliticianChatterController::class, 'store'])->name('politician-chatter.store');
         Route::put('/politician-chatter/{chatter}', [AdminPoliticianChatterController::class, 'update'])->name('politician-chatter.update');

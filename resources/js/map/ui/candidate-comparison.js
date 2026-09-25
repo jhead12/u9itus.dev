@@ -68,6 +68,11 @@ export function renderComparison(data, selectedKeys = [], options = {}) {
     const articles = list => (list ?? []).length
         ? `<ul class="compare-news">${list.map(a => `<li>${sourceLink(a.source_url, a.headline)}<small>${esc([a.source_name, dateLabel(a.published_at).replace('Updated ', '')].filter(Boolean).join(' · '))}</small></li>`).join('')}</ul>`
         : '<span class="compare-missing">None recorded in the last year</span>';
+    // Editor-confirmed only; a bill endorsement says which bill, never implying support for the person.
+    const hasEndorsements = selected.some(c => Array.isArray(c.endorsements));
+    const endorsements = c => (c.endorsements ?? []).length
+        ? `<ul class="compare-news">${c.endorsements.map(e => `<li>${esc(e.endorser)}${e.role ? ` <small>(${esc(e.role)})</small>` : ''}${e.kind === 'bill' ? `<small>Endorsed their bill: ${esc(e.bill_title || 'bill not named')}</small>` : '<small>Endorsed the candidate</small>'}<small>${sourceLink(e.source_url, e.source_name ? `Source: ${e.source_name}` : 'Source')}</small></li>`).join('')}</ul>`
+        : '<span class="compare-missing">None confirmed</span>';
     const focus = c => (c.issue_focus ?? []).length
         ? `<ul class="compare-chips">${c.issue_focus.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : empty;
     return `<section class="pol-compare">
@@ -90,13 +95,14 @@ export function renderComparison(data, selectedKeys = [], options = {}) {
                 ${row('Campaign finance', selected.map(finance))}
                 ${selected.some(c => c.legislation) ? row('Legislative record', selected.map(legislation)) : ''}
                 ${row('Issue focus', selected.map(focus))}
+                ${hasEndorsements ? row('Endorsements', selected.map(endorsements)) : ''}
                 ${stanceRows || row('Policy positions', selected.map(() => empty))}
                 ${hasNews ? row('Recent news coverage', selected.map(c => articles(c.news?.coverage))) : ''}
                 ${hasNews ? row('Candidate press releases', selected.map(c => articles(c.news?.press_releases))) : ''}
                 ${row('Record source', selected.map(c => `${sourceLink(c.profile_url, c.source_label || 'Public records')}<br><small>${esc(dateLabel(c.updated_at))}</small>`))}
             </tbody></table>
         </div>` : '<p class="compare-notice" role="status">Select a candidate above to start comparing.</p>'}
-        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. Party, money, and issue focus are never used to infer a stance.${hasNews ? ' News coverage is reporting about a candidate, not their position; press releases are written by the candidate or their office. We do not rate coverage as positive or negative.' : ''}</p>
+        <p class="compare-note compare-footnote">Positions are published statements, not ratings. Matching topic headings are aligned; missing information does not imply support or opposition. Issue focus lists the topics someone works on most, from bills, floor speeches, and news coverage; it is not a position. Party, money, and issue focus are never used to infer a stance.${hasNews ? ' News coverage is reporting about a candidate, not their position; press releases are written by the candidate or their office. We do not rate coverage as positive or negative.' : ''}${hasEndorsements ? ' Endorsements are found in news coverage and confirmed by U9itus editors; “None confirmed” does not mean there are none.' : ''}</p>
     </section>`;
 }
 

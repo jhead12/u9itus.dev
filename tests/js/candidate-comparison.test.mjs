@@ -92,3 +92,19 @@ test('a state seat explains missing campaign money instead of showing Not record
     const html = renderComparison(data, ['a'], { basic: true });
     assert.match(html, /State and local campaign finance isn&#39;t collected yet/);
 });
+test('endorsements row shows who endorsed and names a backed bill, with safe links', () => {
+    const data = { seat: { label: 'U.S. House · CA-03' }, candidates: [
+        { key: 'a', full_name: 'Alex Rivera', endorsements: [
+            { endorser: 'Gavin <b>Newsom</b>', role: 'Governor', kind: 'candidate', source_name: 'Daily News', source_url: 'https://news.example.com/e' },
+            { endorser: 'AFL-CIO', role: null, kind: 'bill', bill_title: 'Clean Water Act', source_url: 'javascript:alert(1)' },
+        ] },
+        { key: 'b', full_name: 'Jamie Carter', endorsements: [] },
+    ] };
+    const html = renderComparison(data, ['a', 'b'], { basic: true });
+    assert.match(html, /<th scope="row">Endorsements<\/th>/);
+    assert.match(html, /Gavin &lt;b&gt;Newsom&lt;\/b&gt; <small>\(Governor\)<\/small><small>Endorsed the candidate<\/small>/);
+    assert.match(html, /Endorsed their bill: Clean Water Act/);
+    assert.match(html, /None confirmed/);
+    assert.doesNotMatch(html, /javascript:/);
+    assert.match(html, /confirmed by U9itus editors/);
+});

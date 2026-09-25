@@ -158,7 +158,8 @@ class CandidateComparisonService
             fn ($c) => $profiles->has($c['id'] ?? $c['profile_id'] ?? null) ? null : ($c['full_name'] ?? null), $pool))));
         $finance = PoliticianDonorSnapshot::whereIn('politician_id', $profiles->keys())->whereNotNull('enriched_at')
             ->get()->keyBy('politician_id');
-        $candidates = collect($pool)->map(function ($candidate) use ($profiles, $records, $finance, $news, $nameNews) {
+        $endorsements = $this->endorsements($profiles->keys()->all());
+        $candidates = collect($pool)->map(function ($candidate) use ($profiles, $records, $finance, $news, $nameNews, $endorsements) {
             $profile = $profiles->get($candidate['id'] ?? $candidate['profile_id'] ?? null);
             // Read incumbency independently of candidacy; 'active' is not proof
             // that an elected winner has begun their term.
@@ -178,6 +179,7 @@ class CandidateComparisonService
                 'issue_focus' => $profile ? $profile->publicBadges->map(fn ($b) => $b->topic?->name)->filter()->unique()->sort()->values()->all() : [],
                 'finance' => $this->finance($finance->get($profile?->id)),
                 'legislation' => $records['legislation'][$profile?->bioguide_id] ?? null,
+                'endorsements' => $endorsements[$profile?->id] ?? [],
                 'news' => $profile ? ($news[$profile->id] ?? ['coverage' => [], 'press_releases' => []])
                     : ($nameNews[$candidate['full_name']] ?? ['coverage' => [], 'press_releases' => []]),
             ];
@@ -519,6 +521,32 @@ class CandidateComparisonService
 
             return $c;
         }, $pool);
+    }
+
+    /**
+     * Editor-confirmed endorsements per profile (detection alone cannot tell who endorsed
+     * whom), split by whether the candidate or one of their bills was endorsed.
+     *
+     * @param  list<int>  $politicianIds
+     * @return array<int, list<array{endorser: string, role: ?string, kind: string, bill_title: ?string, source_name: ?string, source_url: ?string, reviewed_at: ?string}>>
+     */
+    private function endorsements(array $politicianIds): array
+    {
+        if ($politicianIds === []) return [];
+
+        return \App\Models\PoliticianEndorsement::query()->confirmed()->whereIn('politician_id', $politicianIds)
+            ->with('sourceArticle:id,source_name')->orderByRaw("kind = 'bill'")->orderByRaw('endorser_name IS NULL')->orderByDesc('confidence')->get()
+            ->groupBy('politician_id')
+            ->map(fn ($rows) => $rows->map(fn ($e) => [
+                'endorser' => $e->endorserLabel(),
+                'role' => $e->endorser_name ? $e->label : null,
+                'kind' => $e->kind,
+                'bill_title' => $e->isBill() ? $e->bill_title : null,
+                'source_name' => $e->sourceArticle?->source_name,
+                'source_url' => $e->source_url,
+                'reviewed_at' => $e->reviewed_at?->toDateString(),
+            ])->values()->all())
+            ->all();
     }
 
     private function candidateKey(array $candidate): string

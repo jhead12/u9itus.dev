@@ -1375,7 +1375,7 @@
         </section>
         @endif
 
-        {{-- ── Endorsements (news-detected; listed by who endorsed) ────────── --}}
+        {{-- ── Endorsements (news-detected, editor-confirmed; listed by who endorsed) ── --}}
         @if($endorsements->isNotEmpty())
         <section>
             <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -1390,7 +1390,10 @@
                     @endphp
                     <li class="flex items-center justify-between gap-4 px-4 py-3">
                         <div class="min-w-0">
-                            @if($endorsement->endorser_name)
+                            @if($endorsement->isBill())
+                                <p class="text-sm font-semibold text-white truncate">{{ $endorsement->endorserLabel() }}</p>
+                                <p class="text-xs text-sky-300/90">Endorsed their bill: {{ $endorsement->bill_title }}</p>
+                            @elseif($endorsement->endorser_name)
                                 <p class="text-sm font-semibold text-white truncate">{{ $endorsement->endorser_name }}</p>
                                 <p class="text-xs text-emerald-300/80">{{ $endorsement->label }}</p>
                             @else

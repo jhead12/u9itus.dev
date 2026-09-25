@@ -87,3 +87,12 @@ test('print guide says state campaign money is not collected rather than implyin
     data.seat.finance_note = "State and local campaign finance isn't collected yet. FEC data covers federal races only.";
     assert.match(renderPrintGuide(data, ['a']).html, /State and local campaign finance isn&#39;t collected yet/);
 });
+test('print guide lists confirmed endorsements with their review date and bill', () => {
+    const data = fixture();
+    data.candidates[0].endorsements = [{ endorser: 'AFL-CIO', role: null, kind: 'bill', bill_title: 'Clean Water Act', source_name: 'Daily News', source_url: 'https://news.example.com/e', reviewed_at: '2026-09-18' }];
+    data.candidates[1].endorsements = [];
+    const html = renderPrintGuide(data, ['a', 'b']).html;
+    assert.match(html, /AFL-CIO: endorsed their bill, Clean Water Act/);
+    assert.match(html, /Daily News \[\d\]<br>Reviewed September 18, 2026/);
+    assert.match(html, /None confirmed/);
+});
