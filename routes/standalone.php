@@ -856,6 +856,8 @@ Route::middleware(['guest.trial', 'auth', 'verified', 'check.role', 'no.cache'])
         Route::get('/ballot-measures/{ballotMeasure}/committees', [AdminBallotMeasureCommitteeController::class, 'show'])->name('ballot-measures.committees');
         Route::post('/ballot-measures/{ballotMeasure}/committees', [AdminBallotMeasureCommitteeController::class, 'store'])->name('ballot-measures.committees.store');
         Route::put('/ballot-measures/{ballotMeasure}/finance-url', [AdminBallotMeasureCommitteeController::class, 'updateFinanceUrl'])->name('ballot-measures.finance-url');
+        Route::post('/ballot-measures/{ballotMeasure}/committee-suggestions/{committeeId}/link', [AdminBallotMeasureCommitteeController::class, 'linkSuggestion'])->name('ballot-measures.committee-suggestions.link');
+        Route::post('/ballot-measures/{ballotMeasure}/committee-suggestions/{committeeId}/dismiss', [AdminBallotMeasureCommitteeController::class, 'dismissSuggestion'])->name('ballot-measures.committee-suggestions.dismiss');
         Route::post('/ballot-measure-committees/{committee}/verify', [AdminBallotMeasureCommitteeController::class, 'verify'])->name('ballot-measure-committees.verify');
         Route::post('/ballot-measure-committees/{committee}/reject', [AdminBallotMeasureCommitteeController::class, 'reject'])->name('ballot-measure-committees.reject');
         Route::delete('/ballot-measure-committees/{committee}', [AdminBallotMeasureCommitteeController::class, 'destroy'])->name('ballot-measure-committees.destroy');

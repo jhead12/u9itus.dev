@@ -46,6 +46,9 @@
             Files as <span class="text-slate-200">{{ $filer->filer_name }}</span>{{ $filer->latest_filing_on ? ', last filed '.$filer->latest_filing_on->format('M j, Y') : '' }}.
             @if($snapshot)
                 Raised ${{ number_format((float) $snapshot->contributions_ytd) }} this year, spent ${{ number_format((float) $snapshot->expenditures_ytd) }}, ${{ number_format((float) $snapshot->cash_on_hand) }} cash on hand (Form 460 through {{ $snapshot->period_end?->format('M j, Y') }}, filing {{ $snapshot->filing_id }}).
+                @if($filer->late_contributions > 0)
+                    Plus ${{ number_format($filer->late_contributions) }} in late contributions reported after {{ $filer->late_since?->format('M j') }}.
+                @endif
             @else
                 No Form 460 imported yet.
             @endif

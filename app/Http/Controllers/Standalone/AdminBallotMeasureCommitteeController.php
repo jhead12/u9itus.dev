@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Standalone;
 use App\Http\Controllers\Controller;
 use App\Models\BallotMeasure;
 use App\Models\BallotMeasureCommittee;
+use App\Models\CommitteeTransfer;
 use App\Models\ElectionDataSource;
+use App\Services\CampaignFinance\CalAccessExport;
 use App\Support\MeasureCommitteePriority;
 use App\Support\MeasureCommitteeRules;
 use App\Support\PoliticianDataRules;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -50,7 +53,80 @@ class AdminBallotMeasureCommitteeController extends Controller
             'measure' => $ballotMeasure,
             'committees' => $committees,
             'financeUrl' => $financeUrl,
+            'suggestions' => $this->suggestions($ballotMeasure, $committees),
         ]);
+    }
+
+    /**
+     * Link a committee that a linked committee funded for this measure. The link starts
+     * pending, like any other, and goes through the same integrity checks.
+     */
+    public function linkSuggestion(Request $request, BallotMeasure $ballotMeasure, string $committeeId): RedirectResponse
+    {
+        $position = $request->validate(['position' => ['required', Rule::in(MeasureCommitteeRules::POSITIONS)]])['position'];
+        $transfer = MeasureCommitteeRules::transfersToMeasure($ballotMeasure)->where('to_committee_id', $committeeId)->latest('latest_on')->firstOrFail();
+
+        $link = new BallotMeasureCommittee([
+            'ballot_measure_id' => $ballotMeasure->id,
+            'state' => $ballotMeasure->state,
+            'committee_id' => $committeeId,
+            'committee_name' => $transfer->to_committee_name,
+            'position' => $position,
+            'source_url' => sprintf(CalAccessExport::COMMITTEE_URL, rawurlencode($committeeId)),
+            'status' => BallotMeasureCommittee::STATUS_PENDING,
+            'created_by_user_id' => $request->user()->id,
+        ]);
+        $link->setRelation('ballotMeasure', $ballotMeasure);
+        $link->integrity_flags = MeasureCommitteeRules::flags($link);
+
+        try {
+            $link->save();
+        } catch (UniqueConstraintViolationException) {
+            return back()->with('error', "Committee {$committeeId} is already linked to this measure.");
+        }
+
+        MeasureCommitteePriority::scorePending();
+
+        return back()->with('success', "Linked {$transfer->to_committee_name} for review. Check its filing, then verify it.");
+    }
+
+    public function dismissSuggestion(BallotMeasure $ballotMeasure, string $committeeId): RedirectResponse
+    {
+        MeasureCommitteeRules::transfersToMeasure($ballotMeasure)->where('to_committee_id', $committeeId)->update(['dismissed_at' => now()]);
+
+        return back()->with('success', 'Suggestion dismissed.');
+    }
+
+    /**
+     * Committees that linked committees gave money to for this measure, and that aren't
+     * linked yet — the money path CAL-ACCESS late contribution reports reveal (e.g. a
+     * general-purpose committee funding the "No on" committee).
+     *
+     * @param  Collection<int, BallotMeasureCommittee>  $committees
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function suggestions(BallotMeasure $measure, $committees)
+    {
+        $linked = $committees->keyBy('committee_id');
+
+        return MeasureCommitteeRules::transfersToMeasure($measure)->open()->get()
+            ->reject(fn (CommitteeTransfer $t) => $linked->has($t->to_committee_id))
+            ->groupBy('to_committee_id')
+            ->map(function ($transfers, $toCommitteeId) use ($linked) {
+                $first = $transfers->sortByDesc('latest_on')->first();
+                $funder = $linked->get($first->from_committee_id);
+
+                return [
+                    'committee_id' => (string) $toCommitteeId,
+                    'name' => $first->to_committee_name,
+                    'reference' => $first->measure_reference,
+                    'amount' => (float) $transfers->sum('amount'),
+                    'latest_on' => $first->latest_on,
+                    'funders' => $transfers->map(fn ($t) => $linked->get($t->from_committee_id)?->committee_name ?? $t->from_committee_id)->unique()->values(),
+                    'position' => $first->position ?? MeasureCommitteeRules::positionFromName($first->to_committee_name) ?? $funder?->position,
+                ];
+            })
+            ->sortByDesc('amount')->values();
     }
 
     public function store(Request $request, BallotMeasure $ballotMeasure): RedirectResponse

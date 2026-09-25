@@ -17,6 +17,8 @@ class CommitteeFiler extends Model
         'found',
         'filer_name',
         'latest_filing_on',
+        'late_contributions',
+        'late_since',
         'checked_at',
     ];
 
@@ -25,6 +27,8 @@ class CommitteeFiler extends Model
         return [
             'found' => 'boolean',
             'latest_filing_on' => 'date',
+            'late_contributions' => 'float',
+            'late_since' => 'date',
             'checked_at' => 'datetime',
         ];
     }

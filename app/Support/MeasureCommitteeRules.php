@@ -6,7 +6,10 @@ use App\Models\BallotMeasure;
 use App\Models\BallotMeasureCommittee;
 use App\Models\CommitteeFiler;
 use App\Models\CommitteeFinanceSnapshot;
+use App\Models\CommitteeTransfer;
 use App\Models\ElectionDataSource;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 /**
  * Central data-integrity rules for ballot measure committee links — the measure-finance
@@ -46,6 +49,7 @@ class MeasureCommitteeRules
         'filing_measure_conflict' => 1,
         'filing_missing' => 1,
         'filing_name_mismatch' => 2,
+        'transfer_side_conflict' => 2,
         'name_measure_conflict' => 2,
         'name_position_conflict' => 2,
         'duplicate_committee_name' => 3,
@@ -62,6 +66,7 @@ class MeasureCommitteeRules
         'filing_missing' => "No filings found for this filer ID in the state's data — check the ID",
         'filing_name_mismatch' => "Committee name doesn't match the name on its filings — check the ID",
         'filing_stale' => 'The committee has not filed anything in over 90 days',
+        'transfer_side_conflict' => 'The committee gave money to a committee on the other side of this measure',
         'name_measure_conflict' => 'Committee name mentions a different measure number',
         'name_position_conflict' => 'Committee name suggests the opposite side',
         'duplicate_committee_name' => 'Same committee name is linked under a different ID',
@@ -141,6 +146,10 @@ class MeasureCommitteeRules
         }
 
         array_push($flags, ...self::filingFlags($link, $measure));
+
+        if ($measure !== null && self::fundsOtherSide($link, $measure)) {
+            $flags[] = 'transfer_side_conflict';
+        }
 
         $registry = self::financeRegistryUrl((string) $link->state);
         if ($registry !== null && ! self::sameSite((string) $link->source_url, $registry)) {
@@ -224,6 +233,52 @@ class MeasureCommitteeRules
         return $flags;
     }
 
+    /**
+     * The committee gave money to a committee working against its own side of this measure:
+     * the contribution's filing says so, the recipient's name says so, or the recipient is
+     * linked to this measure on the other side.
+     */
+    private static function fundsOtherSide(BallotMeasureCommittee $link, BallotMeasure $measure): bool
+    {
+        $number = self::normalizeMeasureNumber($measure->measure_number);
+        if ($number === '') {
+            return false;
+        }
+
+        $opposite = $link->position === 'support' ? 'oppose' : 'support';
+        $linkedOpposite = BallotMeasureCommittee::query()
+            ->where('ballot_measure_id', $measure->id)
+            ->where('position', $opposite)
+            ->where('status', '!=', BallotMeasureCommittee::STATUS_REJECTED)
+            ->pluck('committee_id')->flip();
+
+        return self::transfersFor((string) $link->committee_id, $measure)
+            ->contains(fn (CommitteeTransfer $t) => ($t->position ?? self::positionFromName($t->to_committee_name)) === $opposite
+                || $linkedOpposite->has($t->to_committee_id));
+    }
+
+    /**
+     * Contributions a committee made that its filings tie to this measure. Measure numbers
+     * repeat across years and places, so only transfers within two years before the election
+     * count, and a statewide measure only matches statewide references.
+     *
+     * @return Collection<int, CommitteeTransfer>
+     */
+    public static function transfersFor(string $committeeId, BallotMeasure $measure): Collection
+    {
+        return self::transfersToMeasure($measure)->where('from_committee_id', $committeeId)->get();
+    }
+
+    /** @return Builder<CommitteeTransfer> */
+    public static function transfersToMeasure(BallotMeasure $measure): Builder
+    {
+        return CommitteeTransfer::query()
+            ->where('state', strtoupper((string) $measure->state))
+            ->where('measure_number', self::normalizeMeasureNumber($measure->measure_number))
+            ->when($measure->election_date !== null, fn ($q) => $q->where('latest_on', '>=', $measure->election_date->copy()->subYears(2)->toDateString()))
+            ->when($measure->level === 'state', fn ($q) => $q->where(fn ($q) => $q->whereNull('measure_jurisdiction')->orWhere('measure_jurisdiction', 'like', '%STATE%')));
+    }
+
     /** True when the committee's latest filing declaring a measure names this measure and side. */
     public static function confirmedByFiling(BallotMeasureCommittee $link): bool
     {
@@ -264,7 +319,26 @@ class MeasureCommitteeRules
         return $percent >= 85;
     }
 
-    private static function normalizeMeasureNumber(?string $number): string
+    /** The first measure number a text names ("PROPOSITION 40: WEALTH TAX" → "40"), or null. */
+    public static function measureNumberFrom(?string $text): ?string
+    {
+        return preg_match(self::MEASURE_REFERENCE, (string) $text, $m) ? strtoupper($m[1]) : null;
+    }
+
+    /** The side a committee name announces ("No on 40 …" → oppose), or null if it doesn't. */
+    public static function positionFromName(?string $name): ?string
+    {
+        $opposes = (bool) preg_match(self::OPPOSE_SIGNALS, (string) $name);
+        $supports = (bool) preg_match(self::SUPPORT_SIGNALS, (string) $name);
+
+        return match (true) {
+            $opposes && ! $supports => 'oppose',
+            $supports && ! $opposes => 'support',
+            default => null,
+        };
+    }
+
+    public static function normalizeMeasureNumber(?string $number): string
     {
         return strtoupper(trim((string) preg_replace('/^(prop(osition)?|measure|question|issue|amendment)\s*(no\.?\s*)?#?\s*/i', '', trim((string) $number))));
     }

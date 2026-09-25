@@ -106,52 +106,62 @@
     </div>
     @endif
 
-    {{-- Who's funding each side (verified committee links only) --}}
-    @if($committees->isNotEmpty() || $financeUrl)
+    {{-- Who's funding each side (verified committee links only; see App\Support\MeasureFunding) --}}
+    @if($funding !== [] || $financeUrl)
     <div class="mt-6">
         <h2 class="text-lg font-bold text-white mb-3">Who's Funding This</h2>
-        @if($committees->isNotEmpty())
-        @php
-            $money = fn ($amount) => '$'.number_format((float) $amount);
-            $snapshotFor = fn ($c) => $finance->get(\App\Models\CommitteeFinanceSnapshot::keyFor($c->state, $c->committee_id));
-        @endphp
+        @if($funding !== [])
+        @php $money = fn ($amount) => '$'.number_format((float) $amount); @endphp
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             @foreach(['support' => ['Supporting (Yes)', 'text-emerald-400'], 'oppose' => ['Opposing (No)', 'text-rose-400']] as $side => [$label, $color])
-            @php
-                $sideCommittees = $committees->get($side, collect());
-                $sideSnapshots = $sideCommittees->map($snapshotFor)->filter();
-            @endphp
+            @php $data = $funding[$side]; @endphp
             <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
                 <p class="text-xs font-semibold uppercase tracking-wide {{ $color }} mb-1">{{ $label }}</p>
-                @if($sideSnapshots->isNotEmpty())
-                    <p class="text-2xl font-bold text-white">{{ $money($sideSnapshots->sum('contributions_ytd')) }} <span class="text-sm font-normal text-slate-400">raised this year</span></p>
-                    <p class="text-xs text-slate-400 mb-3">
-                        @if($sideSnapshots->sum('nonmonetary_ytd') > 0)incl. {{ $money($sideSnapshots->sum('nonmonetary_ytd')) }} non-cash · @endif
-                        {{ $money($sideSnapshots->sum('expenditures_ytd')) }} spent · {{ $money($sideSnapshots->sum('cash_on_hand')) }} cash on hand
+                @if($data['has_money'])
+                    <p class="text-2xl font-bold text-white">{{ $money($data['net_raised']) }} <span class="text-sm font-normal text-slate-400">raised this year</span></p>
+                    <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+                        @if($data['nonmonetary'] > 0)incl. {{ $money($data['nonmonetary']) }} non-cash · @endif
+                        {{ $money($data['spent']) }} spent · {{ $money($data['cash']) }} cash on hand
+                        @if($data['late'] > 0)<br>incl. {{ $money($data['late']) }} in late contributions reported since the last statement @endif
+                        @if($data['transfers'] > 0)<br>{{ $money($data['transfers']) }} passed between these committees is counted once @endif
                     </p>
                 @else
                     <div class="mb-3"></div>
                 @endif
-                @forelse($sideCommittees as $committee)
-                    @php $snapshot = $snapshotFor($committee); @endphp
+
+                @forelse($data['committees'] as $row)
                     <div class="text-sm mb-3 last:mb-0">
-                        <p class="text-slate-200">{{ $committee->committee_name }}</p>
-                        @if($snapshot)
-                            <p class="text-xs text-slate-400">Raised {{ $money($snapshot->contributions_ytd) }} · spent {{ $money($snapshot->expenditures_ytd) }}{{ $snapshot->period_end ? ' · through '.$snapshot->period_end->format('M j, Y') : '' }}</p>
+                        <p class="text-slate-200">{{ $row['link']->committee_name }}</p>
+                        @if($row['snapshot'])
+                            <p class="text-xs text-slate-400">Raised {{ $money($row['snapshot']->contributions_ytd + $row['late']) }} · spent {{ $money($row['snapshot']->expenditures_ytd) }}{{ $row['snapshot']->period_end ? ' · statement through '.$row['snapshot']->period_end->format('M j, Y') : '' }}</p>
                         @endif
-                        <a href="{{ $committee->source_url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-emerald-300">Filer ID {{ $committee->committee_id }} · see filing</a>
+                        <a href="{{ $row['link']->source_url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-emerald-300">Filer ID {{ $row['link']->committee_id }} · see filing</a>
                     </div>
                 @empty
                     <p class="text-sm text-slate-500">No verified committees yet.</p>
                 @endforelse
+
+                @if($data['top_donors']->isNotEmpty())
+                <div class="mt-4 pt-3 border-t border-slate-700/50">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Top donors</p>
+                    <ol class="space-y-1 text-sm">
+                        @foreach($data['top_donors'] as $donor)
+                        <li class="flex items-baseline justify-between gap-3">
+                            <span class="text-slate-300 min-w-0 truncate">{{ $donor['name'] }}@if($donor['employer'])<span class="text-slate-500"> · {{ $donor['employer'] }}</span>@endif @if($donor['is_committee'])<span class="text-slate-500"> (committee)</span>@endif</span>
+                            <span class="text-slate-200 tabular-nums shrink-0">{{ $money($donor['amount']) }}</span>
+                        </li>
+                        @endforeach
+                    </ol>
+                </div>
+                @endif
             </div>
             @endforeach
         </div>
-        @if($finance->isNotEmpty())
+        @if(collect($funding)->contains('has_money', true))
         <p class="text-xs text-slate-500 mt-3 leading-relaxed">
-            Calendar-year totals from each committee's latest campaign statement (Form 460 in California). A committee active on several
-            measures shows its full totals, not just what it spent on this one. Large contributions reported after a statement's closing date
-            aren't included until the next statement.
+            Calendar-year totals from each committee's latest campaign statement (Form 460 in California), plus large contributions reported
+            since. Money one committee gave another on the same side is counted once. A committee active on several measures shows its full
+            totals, not just what it spent on this one. Donor amounts are itemized contributions as filed; employers are as reported.
         </p>
         @endif
         @endif

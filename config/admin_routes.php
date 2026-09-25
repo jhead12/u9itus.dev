@@ -33,6 +33,8 @@ return [
     'admin.ballot-measures.committees' => 'civic.view',
     'admin.ballot-measures.committees.store' => 'civic.edit',
     'admin.ballot-measures.finance-url' => 'civic.edit',
+    'admin.ballot-measures.committee-suggestions.link' => 'civic.edit',
+    'admin.ballot-measures.committee-suggestions.dismiss' => 'civic.edit',
     'admin.ballot-measure-committees.verify' => 'civic.edit',
     'admin.ballot-measure-committees.reject' => 'civic.edit',
     'admin.ballot-measure-committees.destroy' => 'civic.edit',

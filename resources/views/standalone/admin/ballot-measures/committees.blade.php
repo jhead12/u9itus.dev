@@ -71,6 +71,39 @@
         </div>
     </form>
 
+    {{-- Committees that linked committees funded for this measure --}}
+    @if($suggestions->isNotEmpty())
+    <div class="space-y-3">
+        <h2 class="text-lg font-semibold text-white">Suggested from filings ({{ $suggestions->count() }})</h2>
+        <p class="text-slate-400 text-sm max-w-3xl">Committees that a linked committee gave money to, where the filing names this measure. Linking one adds it to the review queue; check its own filing before verifying.</p>
+        @foreach($suggestions as $suggestion)
+        <div class="bg-slate-800/50 border border-sky-700/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-white font-medium">{{ $suggestion['name'] }}</p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Filer ID {{ $suggestion['committee_id'] }} · received ${{ number_format($suggestion['amount']) }} from {{ $suggestion['funders']->join(', ') }}
+                    {{ $suggestion['latest_on'] ? '(latest '.$suggestion['latest_on']->format('M j, Y').')' : '' }}{{ $suggestion['reference'] ? ' · filed as "'.$suggestion['reference'].'"' : '' }}
+                </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <form method="POST" action="{{ route('admin.ballot-measures.committee-suggestions.link', [$measure, $suggestion['committee_id']]) }}" class="flex items-center gap-2">
+                    @csrf
+                    <select name="position" class="bg-slate-900 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-xs">
+                        <option value="support" @selected($suggestion['position'] === 'support')>Supports</option>
+                        <option value="oppose" @selected($suggestion['position'] === 'oppose')>Opposes</option>
+                    </select>
+                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-medium transition">Link for review</button>
+                </form>
+                <form method="POST" action="{{ route('admin.ballot-measures.committee-suggestions.dismiss', [$measure, $suggestion['committee_id']]) }}">
+                    @csrf
+                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition">Dismiss</button>
+                </form>
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @endif
+
     {{-- Existing links --}}
     <div class="space-y-3">
         <h2 class="text-lg font-semibold text-white">Linked committees ({{ $committees->count() }})</h2>

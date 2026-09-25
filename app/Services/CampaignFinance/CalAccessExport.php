@@ -18,6 +18,9 @@ class CalAccessExport
 {
     public const DOWNLOAD_URL = 'https://campaignfinance.cdn.sos.ca.gov/dbwebexport.zip';
 
+    /** A committee's public CAL-ACCESS page; used as the evidence link for suggested committees. */
+    public const COMMITTEE_URL = 'https://cal-access.sos.ca.gov/Campaign/Committees/Detail.aspx?id=%s';
+
     private ZipArchive $zip;
 
     public function __construct(string $path)
@@ -31,11 +34,15 @@ class CalAccessExport
     /**
      * Rows of one table as column => value arrays. $filter sees the raw field list (in
      * header order) before the row is built, so a cheap column check can skip most rows.
+     * $firstColumnIn skips a line before it is even split unless its first field is a key
+     * of that set — every CAL-ACCESS filing table starts with FILING_ID, and RCPT_CD alone
+     * is 3.7 GB, so this is what keeps a full pass fast.
      *
      * @param  (callable(list<string>, array<string, int>): bool)|null  $filter
+     * @param  array<string|int, mixed>|null  $firstColumnIn
      * @return \Generator<int, array<string, string>>
      */
-    public function rows(string $table, ?callable $filter = null): \Generator
+    public function rows(string $table, ?callable $filter = null, ?array $firstColumnIn = null): \Generator
     {
         $stream = $this->zip->getStream("CalAccess/DATA/{$table}.TSV");
         if ($stream === false) {
@@ -48,6 +55,13 @@ class CalAccessExport
             $width = count($header);
 
             while (($line = fgets($stream)) !== false) {
+                if ($firstColumnIn !== null) {
+                    $tab = strpos($line, "\t");
+                    if ($tab === false || ! isset($firstColumnIn[substr($line, 0, $tab)])) {
+                        continue;
+                    }
+                }
+
                 $fields = $this->split($line);
                 if ($filter !== null && ! $filter($fields, $columns)) {
                     continue;
