@@ -24,6 +24,7 @@ class CandidateNameCanonicalizer
         'gov', 'governor', 'ag',
         'dr', 'mr', 'mrs', 'ms', 'hon', 'honorable',
         'mayor', 'councilman', 'councilwoman', 'councilmember',
+        'treasurer', 'auditor', 'comptroller', 'commissioner',
         'former', 'state', 'us', 'u.s', 'candidate', 'nominee',
     ];
 
@@ -31,6 +32,20 @@ class CandidateNameCanonicalizer
     private const STRONG_TITLES = [
         'rep', 'representative', 'congressman', 'congresswoman', 'congressperson',
         'sen', 'senator', 'gov', 'governor', 'ag', 'mayor', 'councilman', 'councilwoman', 'councilmember',
+        'treasurer', 'auditor', 'comptroller', 'commissioner',
+    ];
+
+    /**
+     * Office titles longer than one word ("Mississippi Attorney General Lynn Fitch"). Each
+     * works like a strong title; the longest match wins.
+     */
+    private const TITLE_PHRASES = [
+        'attorney general', 'lieutenant governor', 'lt governor', 'lt gov', 'secretary of state',
+        'agriculture commissioner', 'commissioner of agriculture', 'agriculture and commerce commissioner',
+        'commissioner of agriculture and commerce', 'insurance commissioner', 'commissioner of insurance',
+        'land commissioner', 'labor commissioner', 'public service commissioner', 'state treasurer',
+        'state auditor', 'state comptroller', 'state superintendent', 'superintendent of education',
+        'superintendent of public instruction',
     ];
 
     /** Verbs/labels a headline puts in front of the name ("Read James Talarico's plan"). */
@@ -54,21 +69,31 @@ class CandidateNameCanonicalizer
 
         // "Texas Rep. James Talarico": a state name is noise only when a title follows it.
         $stateWords = self::stateWordCount($words);
-        if ($stateWords > 0 && isset($words[$stateWords]) && self::isTitle($words[$stateWords])) {
+        if ($stateWords > 0 && isset($words[$stateWords]) && (self::isTitle($words[$stateWords]) || self::titlePhraseLength($words, $stateWords) > 0)) {
             $words = array_slice($words, $stateWords);
         }
 
         // "Detroit Mayor Mike Duggan" / "Detroit's Mayor Mike Duggan": one or two place words, then a
         // title, then a first + last name.
         foreach ([1, 2] as $take) {
-            if (count($words) - $take - 1 >= 2 && self::isStrongTitle($words[$take]) && ! self::hasTitle(array_slice($words, 0, $take))) {
+            if (! isset($words[$take]) || self::hasTitle(array_slice($words, 0, $take))) {
+                continue;
+            }
+            $titleLength = self::titlePhraseLength($words, $take) ?: (self::isStrongTitle($words[$take]) ? 1 : 0);
+            if ($titleLength > 0 && count($words) - $take - $titleLength >= 2) {
                 $words = array_slice($words, $take);
                 break;
             }
         }
 
-        while ($words !== [] && (self::isTitle($words[0]) || in_array(self::bare($words[0]), self::LEADING_NOISE, true))) {
-            array_shift($words);
+        while ($words !== []) {
+            if ($length = self::titlePhraseLength($words, 0)) {
+                $words = array_slice($words, $length);
+            } elseif (self::isTitle($words[0]) || in_array(self::bare($words[0]), self::LEADING_NOISE, true)) {
+                array_shift($words);
+            } else {
+                break;
+            }
         }
 
         // "Talarico's" / "Paxton’s": possessive on the last word only.
@@ -95,6 +120,25 @@ class CandidateNameCanonicalizer
     private static function isStrongTitle(string $word): bool
     {
         return in_array(self::bare($word), self::STRONG_TITLES, true);
+    }
+
+    /**
+     * Word count of the longest office-title phrase starting at $at, or 0.
+     *
+     * @param  array<int, string>  $words
+     */
+    private static function titlePhraseLength(array $words, int $at): int
+    {
+        $best = 0;
+        foreach (self::TITLE_PHRASES as $phrase) {
+            $length = substr_count($phrase, ' ') + 1;
+            $slice = array_map(self::bare(...), array_slice($words, $at, $length));
+            if ($length > $best && count($slice) === $length && implode(' ', $slice) === $phrase) {
+                $best = $length;
+            }
+        }
+
+        return $best;
     }
 
     /** @param  array<int, string>  $words */
