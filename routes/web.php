@@ -153,10 +153,27 @@ Route::get('/', function () {
         $followTheMoneyPacs = collect();
     }
 
+    // "Follow the Money" measure spotlight — one upcoming measure (local first) with its
+    // verified committees on each side and who funds them. See App\Support\MeasureSpotlight.
+    $measureSpotlight = null;
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasTable('ballot_measure_committees')) {
+            $measureSpotlight = \Illuminate\Support\Facades\Cache::remember(
+                'home:measure_spotlight:'.($visitorState ?: 'any'),
+                now()->addMinutes(30),
+                fn () => \App\Support\MeasureSpotlight::pick($visitorState)
+            );
+        }
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Measure spotlight load failed', ['error' => $e->getMessage()]);
+        $measureSpotlight = null;
+    }
+
     return view('welcome', [
         'referralCode'       => $referralCode,
         'featuredCandidates' => $featuredCandidates,
         'followTheMoneyPacs' => $followTheMoneyPacs,
+        'measureSpotlight'   => $measureSpotlight,
         'visitorState'       => $visitorState,
         'localCount'         => $localCount,
     ]);

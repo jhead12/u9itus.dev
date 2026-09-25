@@ -27,6 +27,7 @@ An account can hold both Voter and Citizen roles and switch through `/portal-pic
 | --- | --- | --- |
 | Homepage | Introduces the platform, highlights candidates and recent news, and provides paths into research and registration. Featured candidates can be localized when location lookup is configured. | `/` |
 | Follow the Money highlights | Surfaces prominent committees/PACs with links into funding research. Requires populated committee profiles. | Homepage, Follow the Money area |
+| Ballot measure spotlight | Features one upcoming measure, local first (the visitor's state preferred, then one with committees on both sides): what a YES and a NO vote mean, the verified committees pushing each way, who funds them, and amounts as secondary detail, with a link to the measure's funding page. Falls back to a statewide measure; hidden when no measure has a verified committee. | Homepage, Follow the Money area |
 | Politician and government directory | Browse published profiles; search and narrow results by geography, office/governance context, party, and issues, with sorting options. | `/politicians` |
 | District lookup | Enter a location to identify districts, associated candidates and current officials, with election/voting information when supplied by connected data sources. | `/district-lookup` |
 | Interactive U.S. map | Explore states and districts through a zoomable, tiltable map with national/state navigation, breadcrumbs, and reset controls. | `/map` |
