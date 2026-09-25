@@ -61,6 +61,8 @@ class SyncCensusDemographics extends Command
         'DC' => '11',
     ];
 
+    private const PLACE_UCGID_PREFIX = '1600000US';
+
     /**
      * Allow-list of cities per state (name + lat/lng), mirroring TOP_CITIES in
      * resources/js/map/config/city-data.js — bounds this sync to the same
@@ -255,22 +257,10 @@ class SyncCensusDemographics extends Command
         $this->info("Fetching {$abbr} place-level demographics…");
 
         // Detail table: population + median household income.
-        $detail = $this->fetchCensus(
-            "https://api.census.gov/data/{$year}/acs/acs5"
-            . '?get=NAME,B01001_001E,B19013_001E'
-            . '&for=place:*'
-            . "&in=state:{$fips}"
-            . $this->apiKeyParam()
-        );
+        $detail = $this->fetchPlaceCensus($abbr, $year, 'acs/acs5', 'NAME,B01001_001E,B19013_001E', $fips);
 
         // Subject tables: pre-computed percentages (poverty rate, bachelor's+).
-        $subject = $this->fetchCensus(
-            "https://api.census.gov/data/{$year}/acs/acs5/subject"
-            . '?get=NAME,S1701_C03_001E,S1501_C02_015E'
-            . '&for=place:*'
-            . "&in=state:{$fips}"
-            . $this->apiKeyParam()
-        );
+        $subject = $this->fetchPlaceCensus($abbr, $year, 'acs/acs5/subject', 'NAME,S1701_C03_001E,S1501_C02_015E', $fips);
 
         if ($detail === null || $subject === null) {
             return 0;
@@ -414,11 +404,55 @@ class SyncCensusDemographics extends Command
         ];
     }
 
-    private function apiKeyParam(): string
+    private function fetchPlaceCensus(string $abbr, int $year, string $dataset, string $variables, string $fips): ?array
     {
-        $key = env('CENSUS_DATA_API');
+        $legacy = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => 'place:*',
+            'in' => "state:{$fips}",
+        ]));
 
-        return $key ? '&key=' . rawurlencode($key) : '';
+        if ($legacy !== null) {
+            return $legacy;
+        }
+
+        $normalizedFips = str_pad($fips, 2, '0', STR_PAD_LEFT);
+        $placeCollectionUcgid = 'ucgid:160|state:' . $normalizedFips;
+        $placePrefixUcgid = 'ucgid:' . self::PLACE_UCGID_PREFIX . $normalizedFips . '*';
+
+        $this->warn("  Legacy place geography failed for {$abbr}; retrying with place-collection UCGID geography.");
+
+        $collectionFallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => $placeCollectionUcgid,
+        ]));
+
+        if ($collectionFallback !== null) {
+            return $collectionFallback;
+        }
+
+        $this->warn("  Place-collection UCGID retry failed for {$abbr}; retrying with place-summary-level UCGID prefix geography.");
+
+        $prefixFallback = $this->fetchCensus($this->censusApiUrl($year, $dataset, [
+            'get' => $variables,
+            'for' => $placePrefixUcgid,
+        ]));
+
+        if ($prefixFallback === null) {
+            $this->warn("  All Census fallback requests failed for {$abbr}.");
+        }
+
+        return $prefixFallback;
+    }
+
+    private function censusApiUrl(int $year, string $dataset, array $params): string
+    {
+        $key = (string) config('services.census.api_key', '');
+        if ($key) {
+            $params['key'] = $key;
+        }
+
+        return "https://api.census.gov/data/{$year}/{$dataset}?" . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
 
     private function fetchCensus(string $url): ?array
@@ -443,8 +477,16 @@ class SyncCensusDemographics extends Command
 
         $data = $response->json();
 
-        if (! is_array($data) || count($data) < 2) {
-            $this->error('  Unexpected Census API response shape.');
+        if (! is_array($data) || count($data) < 2 || ! is_array($data[0] ?? null)) {
+            $body = preg_replace('/\s+/', ' ', trim($response->body()));
+            $body = $body !== null ? preg_replace('/([?&]key=)[^&\\s]+/i', '$1[REDACTED]', $body) : null;
+            $apiKey = (string) config('services.census.api_key', '');
+            if ($body !== null && $apiKey !== '') {
+                $body = str_replace($apiKey, '[REDACTED]', $body);
+            }
+            $excerpt = $body !== null ? mb_substr($body, 0, 240) : '';
+            $suffix = $excerpt !== '' ? " Body excerpt: {$excerpt}" . (mb_strlen($body ?? '') > 240 ? '…' : '') : '';
+            $this->error('  Unexpected Census API response shape.' . $suffix);
 
             return null;
         }

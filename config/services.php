@@ -126,6 +126,10 @@ return [
         'api_key' => env('FEC_API_KEY'),
     ],
 
+    'census' => [
+        'api_key' => env('CENSUS_DATA_API_KEY', env('CENSUS_DATA_API')),
+    ],
+
     'google' => [
         'civic_api_key' => env('GOOGLE_CIVIC_API_KEY'),
 
