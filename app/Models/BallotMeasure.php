@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BallotMeasure extends Model
 {
@@ -57,6 +58,12 @@ class BallotMeasure extends Model
         $place = $this->level === 'state' ? null : ($this->locality ?: $this->county);
 
         return strtoupper((string) $this->state).($place ? ' · '.$place : '');
+    }
+
+    /** Campaign committees linked to this measure, in any review state. */
+    public function committees(): HasMany
+    {
+        return $this->hasMany(BallotMeasureCommittee::class);
     }
 
     /**

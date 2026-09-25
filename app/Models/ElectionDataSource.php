@@ -34,6 +34,7 @@ class ElectionDataSource extends Model
         'results_url',
         'vip_feed_url',
         'ballotpedia_url',
+        'campaign_finance_url',
         'urls',
         'source_of_record',
         'robots_ok',

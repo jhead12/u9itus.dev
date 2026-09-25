@@ -106,6 +106,36 @@
     </div>
     @endif
 
+    {{-- Who's funding each side (verified committee links only) --}}
+    @if($committees->isNotEmpty() || $financeUrl)
+    <div class="mt-6">
+        <h2 class="text-lg font-bold text-white mb-3">Who's Funding This</h2>
+        @if($committees->isNotEmpty())
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            @foreach(['support' => ['Supporting (Yes)', 'text-emerald-400'], 'oppose' => ['Opposing (No)', 'text-rose-400']] as $side => [$label, $color])
+            <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
+                <p class="text-xs font-semibold uppercase tracking-wide {{ $color }} mb-3">{{ $label }}</p>
+                @forelse($committees->get($side, collect()) as $committee)
+                    <div class="text-sm mb-2 last:mb-0">
+                        <p class="text-slate-200">{{ $committee->committee_name }}</p>
+                        <a href="{{ $committee->source_url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-emerald-300">Filer ID {{ $committee->committee_id }} · see filing</a>
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-500">No verified committees yet.</p>
+                @endforelse
+            </div>
+            @endforeach
+        </div>
+        @endif
+        @if($financeUrl)
+        <a href="{{ $financeUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            View official filings
+        </a>
+        @endif
+    </div>
+    @endif
+
     @if($measure->source_url)
     <a href="{{ $measure->source_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-4 text-sm text-emerald-400 hover:text-emerald-300 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
