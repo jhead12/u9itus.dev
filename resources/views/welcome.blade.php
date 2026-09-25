@@ -399,9 +399,11 @@
     <!-- Follow the Money — PAC / committee directory teaser -->
     @php
         $followTheMoneyPacs ??= collect();
-        $measureSpotlight ??= null;
+        $moneySpotlight ??= null;
+        $measureSpotlight = ($moneySpotlight['type'] ?? null) === 'measure' ? $moneySpotlight['data'] : null;
+        $candidateSpotlight = ($moneySpotlight['type'] ?? null) === 'candidate' ? $moneySpotlight['data'] : null;
     @endphp
-    @if($followTheMoneyPacs->isNotEmpty() || $measureSpotlight)
+    @if($followTheMoneyPacs->isNotEmpty() || $moneySpotlight)
     <section id="follow-the-money" class="relative py-16 sm:py-20 bg-slate-900 border-t border-slate-800/80">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
@@ -478,6 +480,60 @@
                         <a href="{{ route('voter.ballot-measures.show', $spot) }}"
                            class="inline-flex items-center gap-2 text-sm font-semibold text-amber-300 hover:text-white transition">
                             See who's funding each side
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                        </a>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Candidate spotlight: outside groups spending to elect vs. defeat one candidate. --}}
+            @if($candidateSpotlight)
+                @php
+                    $cand = $candidateSpotlight['politician'];
+                    $candSeat = collect([$cand->political_office, $cand->district ? $cand->state.'-'.$cand->district : $cand->state])->filter()->join(' · ');
+                    $candSides = [
+                        'support' => ['heading' => 'Spending to elect', 'empty' => 'No outside group has reported spending to help them yet.', 'border' => 'border-emerald-500/30', 'label' => 'text-emerald-400'],
+                        'oppose' => ['heading' => 'Spending to defeat', 'empty' => 'No outside group has reported spending against them yet.', 'border' => 'border-rose-500/30', 'label' => 'text-rose-400'],
+                    ];
+                @endphp
+                <div class="mb-12 rounded-2xl border border-amber-500/30 bg-slate-800/60 p-5 sm:p-7">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span class="font-semibold uppercase tracking-wide text-amber-300">Candidate spotlight</span>
+                        @if($candSeat)<span class="text-slate-400">{{ $candSeat }}</span>@endif
+                        @if($cand->party_affiliation)<span class="text-slate-500">· {{ $cand->party_affiliation }}</span>@endif
+                    </div>
+                    <h3 class="mt-2 text-xl sm:text-2xl font-bold text-white">{{ $cand->full_name }}</h3>
+                    <p class="mt-2 text-sm text-slate-300 max-w-3xl">
+                        Outside groups can't coordinate with a campaign, but they can spend unlimited money for or against a candidate. Here's who is trying to decide this race, and how.
+                    </p>
+
+                    <div class="mt-5 grid md:grid-cols-2 gap-4">
+                        @foreach($candSides as $position => $side)
+                            <div class="rounded-xl border {{ $side['border'] }} bg-slate-900/60 p-4">
+                                <p class="text-xs font-bold uppercase tracking-wide {{ $side['label'] }}">{{ $side['heading'] }} {{ Str::of($cand->full_name)->before(' ') }}</p>
+                                @forelse($candidateSpotlight[$position] as $row)
+                                    <div class="mt-3">
+                                        <a href="{{ route('pacs.show', $row['committee']->publicSlug()) }}" class="text-sm font-medium text-white hover:text-amber-300 transition">{{ $row['committee']->name ?: $row['committee']->fec_committee_id }}</a>
+                                        @if($row['committee']->profile?->badgeLabel())
+                                            <span class="ml-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{{ $row['committee']->profile->badgeLabel() }}</span>
+                                        @endif
+                                        @if($row['purposes'] !== [])
+                                            <p class="text-xs text-slate-400 mt-0.5">Paying for: {{ implode(', ', $row['purposes']) }}</p>
+                                        @endif
+                                        <p class="text-[11px] text-slate-500 tabular-nums">${{ number_format($row['amount']) }} in outside spending</p>
+                                    </div>
+                                @empty
+                                    <p class="mt-3 text-sm text-slate-500">{{ $side['empty'] }}</p>
+                                @endforelse
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <p class="text-xs text-slate-500">Independent expenditures reported to the FEC this cycle.</p>
+                        <a href="{{ route('politician.public.show', $cand->slug) }}"
+                           class="inline-flex items-center gap-2 text-sm font-semibold text-amber-300 hover:text-white transition">
+                            See {{ Str::of($cand->full_name)->before(' ') }}'s full record
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                         </a>
                     </div>
