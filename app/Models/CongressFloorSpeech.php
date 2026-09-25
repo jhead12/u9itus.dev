@@ -10,7 +10,7 @@ class CongressFloorSpeech extends Model
     protected $fillable = [
         'granule_id', 'bioguide_id', 'chamber', 'kind', 'spoken_on', 'record_time', 'title', 'record_section',
         'citation', 'body', 'word_count', 'source_url', 'topic_key', 'topic_confidence', 'stance', 'topic_stance',
-        'position_summary', 'quote', 'analysis_method', 'analyzed_at',
+        'position_summary', 'quote', 'analysis_method', 'analyzed_at', 'bill_refs', 'topic_source',
     ];
 
     protected function casts(): array
@@ -20,6 +20,7 @@ class CongressFloorSpeech extends Model
             'word_count' => 'integer',
             'topic_confidence' => 'float',
             'analyzed_at' => 'datetime',
+            'bill_refs' => 'array',
         ];
     }
 

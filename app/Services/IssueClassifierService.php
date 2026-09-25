@@ -235,7 +235,7 @@ class IssueClassifierService
      * @return array{topic_slug: ?string, confidence: float, stance: ?string, position: ?string, quote: ?string, topic_stance: ?string}|null
      *                                                                                                                null when the LLM is unavailable or failed
      */
-    public function analyzeStatement(string $title, string $text): ?array
+    public function analyzeStatement(string $title, string $text, ?string $knownTopicSlug = null): ?array
     {
         if (! $this->isLlmConfigured() || trim($text) === '') {
             return null;
@@ -258,6 +258,9 @@ class IssueClassifierService
                 .'must be copied character-for-character from the statement. topic_stance applies only when the '
                 .'chosen topic lists [support = ...; oppose = ...]: pick the side the speaker clearly argues for, '
                 ."else null. It can differ from stance, e.g. opposing a bill that restricts the topic.\n\n"
+                .($knownTopicSlug !== null && ($knownId = $this->idForSlug($knownTopicSlug)) !== null
+                    ? "The statement is debate on a bill filed under topic_id {$knownId}; use that topic_id.\n\n"
+                    : '')
                 ."Title: {$title}\n\nStatement:\n".mb_substr($text, 0, 8000)."\n\n"
                 .'Return JSON with this exact shape: '.$shape;
 
@@ -290,6 +293,9 @@ class IssueClassifierService
             }
 
             $slug = isset($decoded['topic_id']) ? $this->slugForId((int) $decoded['topic_id']) : null;
+            if ($knownTopicSlug !== null && $this->idForSlug($knownTopicSlug) !== null) {
+                $slug = $knownTopicSlug;
+            }
             $stance = in_array($decoded['stance'] ?? null, ['support', 'oppose', 'mixed'], true) ? $decoded['stance'] : null;
             $topicStance = in_array($decoded['topic_stance'] ?? null, ['support', 'oppose'], true) && $this->hasStances($slug)
                 ? $decoded['topic_stance'] : null;
@@ -361,6 +367,17 @@ class IssueClassifierService
         }
 
         return false;
+    }
+
+    protected function idForSlug(string $slug): ?int
+    {
+        foreach ($this->topicCatalog() as $t) {
+            if ($t['slug'] === $slug) {
+                return $t['id'];
+            }
+        }
+
+        return null;
     }
 
     protected function slugForId(int $topicId): ?string
