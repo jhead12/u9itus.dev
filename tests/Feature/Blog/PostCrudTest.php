@@ -319,3 +319,19 @@ it('returns a null body when a post is only empty spacer paragraphs', function (
 
     expect($post->body)->toBeNull();
 });
+
+it('turns a plain-text body into paragraphs instead of one run-on block', function (): void {
+    $post = Post::factory()->create([
+        'body' => "Longevity\r\nFirst paragraph line.\r\n\r\nSecond paragraph.\n\n\nThird paragraph.",
+    ]);
+
+    expect($post->body)->toBe('<p>Longevity<br />First paragraph line.</p><p>Second paragraph.</p><p>Third paragraph.</p>');
+});
+
+it('leaves an html body with inline newlines untouched by the plain-text conversion', function (): void {
+    $post = Post::factory()->create([
+        'body' => "<p>One\nline.</p>\n<p>Two.</p>",
+    ]);
+
+    expect($post->body)->not->toContain('<br>');
+});

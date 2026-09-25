@@ -122,6 +122,13 @@ class Post extends Model
             return null;
         }
 
+        // Bodies written or pasted as plain text (no block-level markup) rely on
+        // newlines for structure, which HTML collapses into one run-on paragraph.
+        // Turn blank-line-separated blocks into <p> and single newlines into <br>.
+        if (! preg_match('/<\s*(?:p|div|br|h[1-6]|ul|ol|li|blockquote|pre|figure|table|img|iframe)\b/i', $html)) {
+            $html = static::plainTextToParagraphs($html);
+        }
+
         $html = trim(static::htmlSanitizer()->sanitize($html));
         if ($html === '') {
             return null;
@@ -148,6 +155,22 @@ class Post extends Model
         $html = preg_replace('/<p(?:\s[^>]*)?>(?:\s|<br\s*\/?>)*<\/p>/iu', '', $html) ?? $html;
 
         return trim($html) ?: null;
+    }
+
+    private static function plainTextToParagraphs(string $text): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $blocks = preg_split('/\n\s*\n/', $text) ?: [];
+
+        $paragraphs = [];
+        foreach ($blocks as $block) {
+            $lines = array_filter(array_map('trim', explode("\n", $block)), fn ($line) => $line !== '');
+            if ($lines !== []) {
+                $paragraphs[] = '<p>'.implode('<br>', $lines).'</p>';
+            }
+        }
+
+        return implode('', $paragraphs);
     }
 
     /**
