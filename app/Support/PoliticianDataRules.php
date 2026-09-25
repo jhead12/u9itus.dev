@@ -103,6 +103,9 @@ class PoliticianDataRules
     private const HEADLINE_WORD_RULES = [
         // Scraped organization labels and incomplete office titles, not people.
         '/\bGOP\b|\bsecretary$|\bcounty\s+sheriff\b/i' => 'contains an organization or office title',
+        // "Mississippi Attorney General Lynn": a multi-word office title left in front of a name.
+        '/\b(?:attorney\s+general|lieutenant\s+governor|secretary\s+of\s+state|(?:agriculture|insurance|land|labor|public\s+service)\s+commissioner|commissioner\s+of\s+(?:agriculture|insurance))\b/i'
+            => 'contains an organization or office title',
         '/\b(?:democrats|republicans)\b|^(?:iraq|afghanistan) war (?:vet|veteran)$/i' => 'describes a group or occupation, not a person',
         // "Businessman Perry Johnson": an occupation stuck in front of the name.
         '/^(?:businessman|businesswoman|businessperson|entrepreneur|philanthropist)\s/i' => 'starts with an occupation label',

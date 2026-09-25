@@ -11,9 +11,11 @@ use App\Services\CandidateDiscovery\LlmCandidateLeadVerifier;
 use App\Support\CandidateNameCanonicalizer;
 use App\Support\ElectionCycle;
 use App\Support\MapCandidateHygiene;
+use App\Support\PoliticianDataRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -216,6 +218,13 @@ it('cleans a place plus title in front of a name', function (string $raw, string
     ['Mayor Mike Duggan', 'Mike Duggan'],
     ['Michigan Sen. Gary Peters', 'Gary Peters'],
     ['Mike Duggan', 'Mike Duggan'],
+    ['Mississippi Attorney General Lynn Fitch', 'Lynn Fitch'],
+    ['Mississippi Agriculture Commissioner Andy Gipson', 'Andy Gipson'],
+    ['Lt. Gov. Delbert Hosemann', 'Delbert Hosemann'],
+    ['Jackson Secretary of State Michael Watson', 'Michael Watson'],
+    ['Attorney General Lynn', 'Lynn'],
+    ['Maine Treasurer Terry', 'Terry'],
+    ['La. Treasurer John Fleming', 'John Fleming'],
 ]);
 
 it('anchors a decorated name to the person the FEC roster or an official already names', function () {
@@ -373,6 +382,20 @@ it('drops an unlinked discovery record whose cleaned name is still a fragment', 
     $this->artisan('candidates:clean-discovery-names', ['--state' => ['MI'], '--apply' => true])->assertSuccessful();
 
     expect(ElectionCandidateRecord::find($junk->id))->toBeNull();
+});
+
+it('drops discovery records left as a state, a multi-word office title and a first name', function () {
+    $rows = collect(['Mississippi Agriculture Commissioner Andy', 'Mississippi Attorney General Lynn'])->map(fn (string $name) => ElectionCandidateRecord::create([
+        'source' => 'candidate_discovery', 'external_candidate_id' => 'hash-'.Str::slug($name), 'full_name' => $name, 'state' => 'MS',
+        'political_office' => 'Governor', 'governance_level' => 'State', 'election_date' => '2027-11-02', 'payload' => [],
+    ]));
+
+    expect(PoliticianDataRules::headlineWordViolation('Mississippi Attorney General Lynn'))->not->toBeNull()
+        ->and(PoliticianDataRules::headlineWordViolation('Lynn Fitch'))->toBeNull();
+
+    $this->artisan('candidates:clean-discovery-names', ['--state' => ['MS'], '--apply' => true])->assertSuccessful();
+
+    $rows->each(fn (ElectionCandidateRecord $row) => expect(ElectionCandidateRecord::find($row->id))->toBeNull());
 });
 
 it('never verifies or promotes a lead from the text of a Ballotpedia or Wikipedia page', function () {
