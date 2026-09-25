@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Models\BallotMeasure;
 use App\Models\BallotMeasureCommittee;
+use App\Models\CommitteeFiler;
+use App\Models\CommitteeFinanceSnapshot;
 use App\Models\ElectionDataSource;
 
 /**
@@ -19,6 +21,10 @@ use App\Models\ElectionDataSource;
  *    a reviewer must look at it. HARD_FLAGS can never be verified at all. Re-run nightly
  *    by ballot-measures:audit-committee-links, which returns a verified link to review
  *    when a flag appears that its reviewer didn't see.
+ *
+ * The filing_* flags compare the link with what the committee reported to the state, as
+ * imported by a state finance importer (ballot-measures:import-cal-access). They only
+ * apply once an import has checked the filer ID.
  */
 class MeasureCommitteeRules
 {
@@ -36,9 +42,14 @@ class MeasureCommitteeRules
      */
     public const DETECTABILITY = [
         'state_mismatch' => 1,
+        'filing_position_conflict' => 1,
+        'filing_measure_conflict' => 1,
+        'filing_missing' => 1,
+        'filing_name_mismatch' => 2,
         'name_measure_conflict' => 2,
         'name_position_conflict' => 2,
         'duplicate_committee_name' => 3,
+        'filing_stale' => 4,
         'source_off_registry' => 4,
         'unreviewed' => 3,
     ];
@@ -46,6 +57,11 @@ class MeasureCommitteeRules
     /** Plain-language labels for the admin UI. */
     public const FLAG_LABELS = [
         'state_mismatch' => "Committee's state doesn't match the measure's state",
+        'filing_position_conflict' => "The committee's own filing declares the opposite side",
+        'filing_measure_conflict' => "The committee's own filing declares a different measure",
+        'filing_missing' => "No filings found for this filer ID in the state's data — check the ID",
+        'filing_name_mismatch' => "Committee name doesn't match the name on its filings — check the ID",
+        'filing_stale' => 'The committee has not filed anything in over 90 days',
         'name_measure_conflict' => 'Committee name mentions a different measure number',
         'name_position_conflict' => 'Committee name suggests the opposite side',
         'duplicate_committee_name' => 'Same committee name is linked under a different ID',
@@ -124,6 +140,8 @@ class MeasureCommitteeRules
             $flags[] = 'duplicate_committee_name';
         }
 
+        array_push($flags, ...self::filingFlags($link, $measure));
+
         $registry = self::financeRegistryUrl((string) $link->state);
         if ($registry !== null && ! self::sameSite((string) $link->source_url, $registry)) {
             $flags[] = 'source_off_registry';
@@ -162,6 +180,95 @@ class MeasureCommitteeRules
             ->value('campaign_finance_url') ?: null;
     }
 
+    /**
+     * Checks against the committee's filings. Only a committee formed mainly for one measure
+     * declares it on its cover page; a general-purpose committee (like one opposing several
+     * measures) doesn't, so the declared-measure checks are skipped when nothing is declared.
+     *
+     * @return list<string>
+     */
+    private static function filingFlags(BallotMeasureCommittee $link, ?BallotMeasure $measure): array
+    {
+        $filer = CommitteeFiler::for((string) $link->state, (string) $link->committee_id);
+        if ($filer === null) {
+            return []; // no importer for this state, or not checked yet
+        }
+        if (! $filer->found) {
+            return ['filing_missing'];
+        }
+
+        $flags = [];
+
+        if ($filer->filer_name !== null && ! self::namesMatch((string) $link->committee_name, $filer->filer_name)) {
+            $flags[] = 'filing_name_mismatch';
+        }
+
+        $declared = self::latestDeclaration($link);
+        if ($declared !== null && $measure !== null) {
+            $number = self::normalizeMeasureNumber($measure->measure_number);
+            if ($declared->declared_measure_number !== null && $number !== ''
+                && self::normalizeMeasureNumber($declared->declared_measure_number) !== $number) {
+                $flags[] = 'filing_measure_conflict';
+            }
+            if ($declared->declared_position !== null && $declared->declared_position !== $link->position) {
+                $flags[] = 'filing_position_conflict';
+            }
+        }
+
+        $upcoming = $measure !== null && ! in_array($measure->status, ['passed', 'failed'], true)
+            && ($measure->election_date === null || $measure->election_date->isFuture());
+        if ($upcoming && $filer->latest_filing_on !== null && $filer->latest_filing_on->lt(now()->subDays(90))) {
+            $flags[] = 'filing_stale';
+        }
+
+        return $flags;
+    }
+
+    /** True when the committee's latest filing declaring a measure names this measure and side. */
+    public static function confirmedByFiling(BallotMeasureCommittee $link): bool
+    {
+        $declared = self::latestDeclaration($link);
+        $measure = $link->ballotMeasure;
+
+        return $declared !== null && $measure !== null
+            && $declared->declared_position === $link->position
+            && $declared->declared_measure_number !== null
+            && self::normalizeMeasureNumber($declared->declared_measure_number) === self::normalizeMeasureNumber($measure->measure_number);
+    }
+
+    private static function latestDeclaration(BallotMeasureCommittee $link): ?CommitteeFinanceSnapshot
+    {
+        return CommitteeFinanceSnapshot::query()
+            ->where('state', strtoupper((string) $link->state))
+            ->where('committee_id', $link->committee_id)
+            ->where(fn ($q) => $q->whereNotNull('declared_measure_number')->orWhereNotNull('declared_position'))
+            ->orderByDesc('period_end')->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Filed names are often longer than the common name ("No on 40, Californians Against
+     * the Tax, Sponsored by …"), so one containing the other counts as a match, as does a
+     * close spelling.
+     */
+    private static function namesMatch(string $entered, string $filed): bool
+    {
+        $a = self::normalizeName($entered);
+        $b = self::normalizeName($filed);
+        if ($a === '' || $b === '' || $a === $b || str_contains($a, $b) || str_contains($b, $a)) {
+            return true;
+        }
+
+        similar_text($a, $b, $percent);
+
+        return $percent >= 85;
+    }
+
+    private static function normalizeMeasureNumber(?string $number): string
+    {
+        return strtoupper(trim((string) preg_replace('/^(prop(osition)?|measure|question|issue|amendment)\s*(no\.?\s*)?#?\s*/i', '', trim((string) $number))));
+    }
+
     private static function nameContradictsPosition(string $name, string $position): bool
     {
         $opposes = (bool) preg_match(self::OPPOSE_SIGNALS, $name);
@@ -172,7 +279,7 @@ class MeasureCommitteeRules
 
     private static function mentionsOtherMeasure(string $name, BallotMeasure $measure): bool
     {
-        $number = strtoupper(trim((string) preg_replace('/^(prop(osition)?|measure|question|issue|amendment)\s*#?\s*/i', '', trim((string) $measure->measure_number))));
+        $number = self::normalizeMeasureNumber($measure->measure_number);
         if ($number === '' || ! preg_match_all(self::MEASURE_REFERENCE, $name, $matches)) {
             return false;
         }

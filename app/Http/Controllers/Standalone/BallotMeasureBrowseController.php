@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Standalone;
 
 use App\Http\Controllers\Controller;
 use App\Models\BallotMeasure;
+use App\Models\CommitteeFinanceSnapshot;
 use App\Support\MeasureCommitteeRules;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -77,9 +78,11 @@ class BallotMeasureBrowseController extends Controller
 
         // Only verified links: a committee name rarely says which side it's on, so an
         // unchecked link could tell voters the wrong thing.
-        $committees = $measure->committees()->verified()->orderBy('committee_name')->get()->groupBy('position');
+        $verified = $measure->committees()->verified()->orderBy('committee_name')->get();
+        $committees = $verified->groupBy('position');
+        $finance = CommitteeFinanceSnapshot::latestForLinks($verified);
         $financeUrl = MeasureCommitteeRules::financeRegistryUrl((string) $measure->state);
 
-        return view('standalone.voter.ballot-measures.show', compact('measure', 'isFavorited', 'committees', 'financeUrl'));
+        return view('standalone.voter.ballot-measures.show', compact('measure', 'isFavorited', 'committees', 'finance', 'financeUrl'));
     }
 }

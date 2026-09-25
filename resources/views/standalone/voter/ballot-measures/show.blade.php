@@ -111,13 +111,34 @@
     <div class="mt-6">
         <h2 class="text-lg font-bold text-white mb-3">Who's Funding This</h2>
         @if($committees->isNotEmpty())
+        @php
+            $money = fn ($amount) => '$'.number_format((float) $amount);
+            $snapshotFor = fn ($c) => $finance->get(\App\Models\CommitteeFinanceSnapshot::keyFor($c->state, $c->committee_id));
+        @endphp
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             @foreach(['support' => ['Supporting (Yes)', 'text-emerald-400'], 'oppose' => ['Opposing (No)', 'text-rose-400']] as $side => [$label, $color])
+            @php
+                $sideCommittees = $committees->get($side, collect());
+                $sideSnapshots = $sideCommittees->map($snapshotFor)->filter();
+            @endphp
             <div class="bg-slate-800/40 border border-slate-700/40 rounded-xl p-5">
-                <p class="text-xs font-semibold uppercase tracking-wide {{ $color }} mb-3">{{ $label }}</p>
-                @forelse($committees->get($side, collect()) as $committee)
-                    <div class="text-sm mb-2 last:mb-0">
+                <p class="text-xs font-semibold uppercase tracking-wide {{ $color }} mb-1">{{ $label }}</p>
+                @if($sideSnapshots->isNotEmpty())
+                    <p class="text-2xl font-bold text-white">{{ $money($sideSnapshots->sum('contributions_ytd')) }} <span class="text-sm font-normal text-slate-400">raised this year</span></p>
+                    <p class="text-xs text-slate-400 mb-3">
+                        @if($sideSnapshots->sum('nonmonetary_ytd') > 0)incl. {{ $money($sideSnapshots->sum('nonmonetary_ytd')) }} non-cash · @endif
+                        {{ $money($sideSnapshots->sum('expenditures_ytd')) }} spent · {{ $money($sideSnapshots->sum('cash_on_hand')) }} cash on hand
+                    </p>
+                @else
+                    <div class="mb-3"></div>
+                @endif
+                @forelse($sideCommittees as $committee)
+                    @php $snapshot = $snapshotFor($committee); @endphp
+                    <div class="text-sm mb-3 last:mb-0">
                         <p class="text-slate-200">{{ $committee->committee_name }}</p>
+                        @if($snapshot)
+                            <p class="text-xs text-slate-400">Raised {{ $money($snapshot->contributions_ytd) }} · spent {{ $money($snapshot->expenditures_ytd) }}{{ $snapshot->period_end ? ' · through '.$snapshot->period_end->format('M j, Y') : '' }}</p>
+                        @endif
                         <a href="{{ $committee->source_url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-emerald-300">Filer ID {{ $committee->committee_id }} · see filing</a>
                     </div>
                 @empty
@@ -126,6 +147,13 @@
             </div>
             @endforeach
         </div>
+        @if($finance->isNotEmpty())
+        <p class="text-xs text-slate-500 mt-3 leading-relaxed">
+            Calendar-year totals from each committee's latest campaign statement (Form 460 in California). A committee active on several
+            measures shows its full totals, not just what it spent on this one. Large contributions reported after a statement's closing date
+            aren't included until the next statement.
+        </p>
+        @endif
         @endif
         @if($financeUrl)
         <a href="{{ $financeUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-3 text-sm text-emerald-400 hover:text-emerald-300 transition">

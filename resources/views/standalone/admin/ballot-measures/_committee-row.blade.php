@@ -10,6 +10,9 @@
     };
     $open = $link->openFlags();
     $accepted = array_values(array_diff($link->integrity_flags ?? [], $open));
+    $filer = \App\Models\CommitteeFiler::for($link->state, $link->committee_id);
+    $snapshot = \App\Models\CommitteeFinanceSnapshot::latestFor($link->state, $link->committee_id);
+    $confirmed = \App\Support\MeasureCommitteeRules::confirmedByFiling($link);
 @endphp
 <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -25,6 +28,10 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <span class="inline-flex items-center rounded-full border {{ $positionPill }} px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">{{ $link->position === 'support' ? 'Supports' : 'Opposes' }}</span>
+            @if($confirmed)
+                <span class="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-300 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                      title="The committee's own filing declares this measure and side">Confirmed by filing</span>
+            @endif
             <span class="inline-flex items-center rounded-full border {{ $statusPill }} px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">{{ $link->status }}</span>
             @if($link->status === 'pending' && $link->priority_score)
                 <span class="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-300 px-2.5 py-0.5 text-[10px] font-semibold"
@@ -32,6 +39,21 @@
             @endif
         </div>
     </div>
+
+    @if($filer)
+    <p class="text-xs text-slate-400">
+        @if($filer->found)
+            Files as <span class="text-slate-200">{{ $filer->filer_name }}</span>{{ $filer->latest_filing_on ? ', last filed '.$filer->latest_filing_on->format('M j, Y') : '' }}.
+            @if($snapshot)
+                Raised ${{ number_format((float) $snapshot->contributions_ytd) }} this year, spent ${{ number_format((float) $snapshot->expenditures_ytd) }}, ${{ number_format((float) $snapshot->cash_on_hand) }} cash on hand (Form 460 through {{ $snapshot->period_end?->format('M j, Y') }}, filing {{ $snapshot->filing_id }}).
+            @else
+                No Form 460 imported yet.
+            @endif
+        @else
+            Not found in the state's filing data (checked {{ $filer->checked_at?->diffForHumans() }}).
+        @endif
+    </p>
+    @endif
 
     @if($open !== [] || $accepted !== [])
     <ul class="text-xs space-y-1">
