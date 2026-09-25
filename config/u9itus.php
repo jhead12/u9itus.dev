@@ -549,6 +549,11 @@ return [
         'floor_speech_window_days' => env('ISSUE_FLOOR_SPEECH_WINDOW_DAYS', 365),
         'floor_speech_half_life_days' => env('ISSUE_FLOOR_SPEECH_HALF_LIFE_DAYS', 180),
 
+        // A badge shows Supports / Opposes from floor speeches only when at least this
+        // many speeches take a side on the topic and this share of them agree.
+        'stance_min_statements' => env('ISSUE_STANCE_MIN_STATEMENTS', 2),
+        'stance_min_share' => env('ISSUE_STANCE_MIN_SHARE', 0.75),
+
         // Legislation scoring. One cosponsorship counts this fraction of a
         // sponsored bill; a topic scores 1 point per this share of the member's
         // weighted bill activity (so the default threshold needs ~8%); and topics

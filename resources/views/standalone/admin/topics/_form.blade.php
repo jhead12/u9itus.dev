@@ -50,6 +50,29 @@
         <p class="text-xs text-slate-500 mt-1.5">Optional. A direct link to a small square image (PNG/SVG, transparent background works best) shown on voter badges when they earn this topic. If left blank, the emoji from the Icon field is used instead. Host the image somewhere public (e.g. your CDN or S3 bucket) and paste the URL here.</p>
     </div>
 
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div>
+            <label for="kind" class="block text-sm font-medium text-slate-300 mb-1.5">Type</label>
+            <select id="kind" name="kind" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                <option value="issue" @selected(old('kind', $topic->kind ?? 'issue') === 'issue')>Issue</option>
+                <option value="current_event" @selected(old('kind', $topic->kind) === 'current_event')>Current event</option>
+            </select>
+        </div>
+        <div>
+            <label for="support_label" class="block text-sm font-medium text-slate-300 mb-1.5">Support wording</label>
+            <input type="text" id="support_label" name="support_label" maxlength="120" value="{{ old('support_label', $topic->support_label) }}" placeholder="e.g. Supports data center development"
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 @error('support_label') border-red-500 @enderror">
+            @error('support_label')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="oppose_label" class="block text-sm font-medium text-slate-300 mb-1.5">Oppose wording</label>
+            <input type="text" id="oppose_label" name="oppose_label" maxlength="120" value="{{ old('oppose_label', $topic->oppose_label) }}" placeholder="e.g. Opposes data center development"
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 @error('oppose_label') border-red-500 @enderror">
+            @error('oppose_label')<p class="text-red-400 text-xs mt-1">{{ $message }}</p>@enderror
+        </div>
+        <p class="sm:col-span-3 -mt-3 text-xs text-slate-500">Fill both to let badges show a position, from floor speeches and from votes tagged on the Vote tagging page. Leave both blank for broad topics like Education, where "opposes" is not a real position. Badges then just say the politician is active on it.</p>
+    </div>
+
     <div class="space-y-3">
         <label class="flex items-center gap-3 cursor-pointer group">
             <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $topic->exists ? $topic->is_active : true))

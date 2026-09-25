@@ -22,6 +22,9 @@ class ProfileBadge extends Model
         'earned_threshold',
         'is_public',
         'earned_at',
+        // support | oppose | mixed, and the wording shown on the badge
+        'stance',
+        'stance_label',
     ];
 
     protected function casts(): array
@@ -68,5 +71,13 @@ class ProfileBadge extends Model
     public function scopeInferred($query)
     {
         return $query->where('badge_type', 'inferred_discourse');
+    }
+
+    /**
+     * Badges earned from roll calls an editor tied to a topic.
+     */
+    public function scopeFromVotes($query)
+    {
+        return $query->where('badge_type', 'roll_call_vote');
     }
 }

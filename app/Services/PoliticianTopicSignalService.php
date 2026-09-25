@@ -179,7 +179,7 @@ class PoliticianTopicSignalService
                 ->where('bioguide_id', $politician->bioguide_id)
                 ->whereNotNull('topic_key')
                 ->where('spoken_on', '>=', now()->subDays((int) config('u9itus.issues.floor_speech_window_days', 365)))
-                ->get(['topic_key', 'topic_confidence', 'spoken_on']);
+                ->get(['topic_key', 'topic_confidence', 'topic_stance', 'spoken_on']);
             foreach ($speeches as $speech) {
                 $topicId = $this->topicIdForSlug((string) $speech->topic_key);
                 if ($topicId === null) {
@@ -188,6 +188,12 @@ class PoliticianTopicSignalService
                 $decay = exp(-$this->ageDays($speech->spoken_on) / max($speechHalfLife, 1.0));
                 $acc[$topicId]['floor_speech'] = ($acc[$topicId]['floor_speech'] ?? 0.0) + max((float) $speech->topic_confidence, 0.5) * $decay;
                 $acc[$topicId]['floor_speech_count'] = ($acc[$topicId]['floor_speech_count'] ?? 0) + 1;
+                // Position on the topic's own labels (e.g. for or against data center
+                // development), which BadgeService shows when the speeches agree.
+                if (in_array($speech->topic_stance, ['support', 'oppose'], true)) {
+                    $key = $speech->topic_stance.'_count';
+                    $acc[$topicId][$key] = ($acc[$topicId][$key] ?? 0) + 1;
+                }
             }
         }
 
@@ -222,7 +228,7 @@ class PoliticianTopicSignalService
 
             // Drop signals for topics with no evidence this run (stale cleanup).
             PoliticianTopicSignal::where('politician_id', $politician->id)
-                ->whereKeyNot($seenIds ?: [0])
+                ->whereNotIn('topic_id', $seenIds ?: [0])
                 ->delete();
 
             return $politician->topicSignals()->topByScore()->get();
@@ -253,6 +259,8 @@ class PoliticianTopicSignalService
             'votesmart_count' => (int) ($a['votesmart_count'] ?? 0),
             'legislation_count' => (int) ($a['legislation_count'] ?? 0),
             'floor_speech_count' => (int) ($a['floor_speech_count'] ?? 0),
+            'support_count' => (int) ($a['support_count'] ?? 0),
+            'oppose_count' => (int) ($a['oppose_count'] ?? 0),
             'total_score' => round($total, 4),
             'score_components' => json_encode([
                 'news' => round($wNews * $newsAgg, 4),

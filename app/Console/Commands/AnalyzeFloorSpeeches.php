@@ -42,6 +42,7 @@ class AnalyzeFloorSpeeches extends Command
                     'stance' => $analysis['stance'],
                     'position_summary' => $analysis['position'],
                     'quote' => $analysis['quote'],
+                    'topic_stance' => $analysis['topic_stance'] ?? null,
                 ];
             } else {
                 $method = 'keyword';

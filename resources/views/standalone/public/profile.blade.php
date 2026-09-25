@@ -567,14 +567,14 @@
                                 <a href="{{ route('politicians.directory', ['topic' => $tag['slug']]) }}"
                                    class="inline-flex items-center gap-x-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-all hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-1"
                                    style="color:{{ $tag['color'] }};border-color:{{ $tag['color'] }}40;background-color:{{ $tag['color'] }}1a;--tw-ring-color:{{ $tag['color'] }};"
-                                   title="Browse candidates focused on {{ $tag['name'] }}"
+                                   title="{{ $tag['label'] ? $tag['name'].': '.$tag['label'].'. ' : '' }}Browse candidates focused on {{ $tag['name'] }}"
                                    data-issue-tag="{{ $tag['slug'] }}">
                                     @if(!empty($tag['icon']))
                                         <span aria-hidden="true">{{ $tag['icon'] }}</span>
                                     @else
                                         <svg class="h-1.5 w-1.5 flex-shrink-0" viewBox="0 0 6 6" aria-hidden="true" style="fill:{{ $tag['color'] }};"><circle cx="3" cy="3" r="3"/></svg>
                                     @endif
-                                    {{ $tag['name'] }}
+                                    {{ $tag['label'] ?: $tag['name'] }}
                                 </a>
                             @endforeach
                         </div>

@@ -232,7 +232,7 @@ class IssueClassifierService
      * position taken, and a verbatim quote that shows it. The quote is dropped unless it
      * appears in the text, so a paraphrase is never shown as the speaker's words.
      *
-     * @return array{topic_slug: ?string, confidence: float, stance: ?string, position: ?string, quote: ?string}|null
+     * @return array{topic_slug: ?string, confidence: float, stance: ?string, position: ?string, quote: ?string, topic_stance: ?string}|null
      *                                                                                                                null when the LLM is unavailable or failed
      */
     public function analyzeStatement(string $title, string $text): ?array
@@ -248,13 +248,16 @@ class IssueClassifierService
 
             $shape = '{"topic_id": <int|null>, "confidence": <0.0-1.0>, "stance": "support"|"oppose"|"mixed"|null, '
                 .'"position": "<one neutral sentence, max 25 words, starting with a verb, e.g. Supports ...>"|null, '
-                .'"quote": "<exact sentence(s) copied from the statement, max 40 words>"|null}';
+                .'"quote": "<exact sentence(s) copied from the statement, max 40 words>"|null, '
+                .'"topic_stance": "support"|"oppose"|null}';
 
-            $user = "Catalog (topic_id → name):\n".$this->topicCatalogForPrompt()."\n\n"
+            $user = "Catalog (topic_id → name):\n".$this->topicCatalogForPrompt(withStances: true)."\n\n"
                 .'Rules: topic_id is the issue the statement is substantively about (null for tributes, '
                 .'procedure or scheduling). stance is whether the speaker argues for or against the policy, bill '
                 .'or action they discuss (null if they take no position). position names that policy. quote '
-                ."must be copied character-for-character from the statement.\n\n"
+                .'must be copied character-for-character from the statement. topic_stance applies only when the '
+                .'chosen topic lists [support = ...; oppose = ...]: pick the side the speaker clearly argues for, '
+                ."else null. It can differ from stance, e.g. opposing a bill that restricts the topic.\n\n"
                 ."Title: {$title}\n\nStatement:\n".mb_substr($text, 0, 8000)."\n\n"
                 .'Return JSON with this exact shape: '.$shape;
 
@@ -288,6 +291,8 @@ class IssueClassifierService
 
             $slug = isset($decoded['topic_id']) ? $this->slugForId((int) $decoded['topic_id']) : null;
             $stance = in_array($decoded['stance'] ?? null, ['support', 'oppose', 'mixed'], true) ? $decoded['stance'] : null;
+            $topicStance = in_array($decoded['topic_stance'] ?? null, ['support', 'oppose'], true) && $this->hasStances($slug)
+                ? $decoded['topic_stance'] : null;
             $position = trim((string) ($decoded['position'] ?? ''));
             $quote = trim((string) ($decoded['quote'] ?? ''));
             $normalize = fn (string $v) => preg_replace('/\s+/u', ' ', $v);
@@ -301,6 +306,7 @@ class IssueClassifierService
                 'stance' => $stance,
                 'position' => $position !== '' ? mb_substr($position, 0, 500) : null,
                 'quote' => $quote !== null ? mb_substr($quote, 0, 600) : null,
+                'topic_stance' => $topicStance,
             ];
         } catch (\Throwable $e) {
             $this->logProviderException('analyze_statement', $e);
@@ -319,15 +325,16 @@ class IssueClassifierService
      */
     protected function topicCatalog(): array
     {
-        return Cache::remember('issues:topic-catalog-v2', 300, function () {
+        return Cache::remember('issues:topic-catalog-v3', 300, function () {
             return PoliticianTopic::query()
                 ->where('is_active', true)
-                ->get(['id', 'slug', 'name', 'keywords'])
+                ->get(['id', 'slug', 'name', 'keywords', 'support_label', 'oppose_label'])
                 ->map(fn (PoliticianTopic $t) => [
                     'id' => (int) $t->id,
                     'slug' => strtolower((string) $t->slug),
                     'name' => strtolower((string) $t->name),
                     'keywords' => array_values(array_filter(array_map(fn ($k) => strtolower(trim((string) $k)), (array) ($t->keywords ?? [])))),
+                    'stances' => $t->hasStanceLabels() ? ['support' => $t->support_label, 'oppose' => $t->oppose_label] : null,
                 ])
                 ->all();
         });
@@ -335,12 +342,25 @@ class IssueClassifierService
 
     /**
      * Compact catalog string for the LLM prompt: "1 → Healthcare\n2 → Climate Action".
+     * With $withStances, topics that define a position add its two sides.
      */
-    protected function topicCatalogForPrompt(): string
+    protected function topicCatalogForPrompt(bool $withStances = false): string
     {
         return collect($this->topicCatalog())
-            ->map(fn ($t) => "{$t['id']} → ".ucwords(str_replace('-', ' ', $t['slug'])))
+            ->map(fn ($t) => "{$t['id']} → ".ucwords(str_replace('-', ' ', $t['slug']))
+                .($withStances && ! empty($t['stances']) ? " [support = {$t['stances']['support']}; oppose = {$t['stances']['oppose']}]" : ''))
             ->implode("\n");
+    }
+
+    protected function hasStances(?string $slug): bool
+    {
+        foreach ($this->topicCatalog() as $t) {
+            if ($slug !== null && $t['slug'] === $slug) {
+                return ! empty($t['stances']);
+            }
+        }
+
+        return false;
     }
 
     protected function slugForId(int $topicId): ?string
