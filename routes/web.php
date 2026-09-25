@@ -153,10 +153,28 @@ Route::get('/', function () {
         $followTheMoneyPacs = collect();
     }
 
+    // "Follow the Money" spotlight — rotates each half hour between an upcoming ballot
+    // measure and contested candidates, showing who's spending for and against each.
+    // See App\Support\MoneySpotlight.
+    $moneySpotlight = null;
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasTable('ballot_measure_committees')) {
+            $moneySpotlight = \Illuminate\Support\Facades\Cache::remember(
+                \App\Support\MoneySpotlight::cacheKey($visitorState),
+                now()->addSeconds(\App\Support\MoneySpotlight::SLOT_SECONDS),
+                fn () => \App\Support\MoneySpotlight::current($visitorState)
+            );
+        }
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Money spotlight load failed', ['error' => $e->getMessage()]);
+        $moneySpotlight = null;
+    }
+
     return view('welcome', [
         'referralCode'       => $referralCode,
         'featuredCandidates' => $featuredCandidates,
         'followTheMoneyPacs' => $followTheMoneyPacs,
+        'moneySpotlight'     => $moneySpotlight,
         'visitorState'       => $visitorState,
         'localCount'         => $localCount,
     ]);
