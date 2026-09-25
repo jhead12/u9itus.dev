@@ -134,6 +134,25 @@
         .sidebar-section-toggle:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; border-radius: 0.375rem; }
         .sidebar-chevron { width: 0.75rem; height: 0.75rem; flex-shrink: 0; transition: transform 150ms ease; }
         .sidebar-section-toggle[aria-expanded="false"] .sidebar-chevron { transform: rotate(-90deg); }
+        /* Accented sections (admin sidebar): each section sets --section-accent inline so its
+           header, nested links, and active state share one color distinct from its neighbors. */
+        .sidebar-section-accented > .sidebar-section-toggle { color: var(--section-accent); }
+        .sidebar-section-accented > .sidebar-section-toggle:hover { color: #fff; }
+        .sidebar-section-accented > .sidebar-section-toggle > span { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .sidebar-section-accented > .sidebar-section-toggle > span::before {
+            content: ''; width: 0.5rem; height: 0.5rem; border-radius: 9999px; background-color: var(--section-accent); flex-shrink: 0;
+        }
+        .sidebar-section-accented > [data-sidebar-body] {
+            margin-left: 1.25rem;
+            padding-left: 0.5rem;
+            border-left: 2px solid color-mix(in srgb, var(--section-accent) 35%, transparent);
+        }
+        .sidebar-section-accented .sidebar-link:hover { background-color: color-mix(in srgb, var(--section-accent) 12%, transparent); }
+        .sidebar-section-accented .sidebar-link.active {
+            color: var(--section-accent);
+            background-color: color-mix(in srgb, var(--section-accent) 12%, transparent);
+            border-color: color-mix(in srgb, var(--section-accent) 30%, transparent);
+        }
     </style>
 
     @stack('styles')
@@ -417,12 +436,24 @@
                     ];
                 @endphp
 
-                @php $adminCanSubmitPublicSource = \App\Support\ChatterContributorAccess::allowed(auth()->user()); @endphp
+                @php
+                    $adminCanSubmitPublicSource = \App\Support\ChatterContributorAccess::allowed(auth()->user());
+                    $adminSectionAccents = [
+                        'Overview' => '#38bdf8',          // sky
+                        'Content' => '#34d399',           // emerald
+                        'Campaigns' => '#fbbf24',         // amber
+                        'Accounts' => '#a78bfa',          // violet
+                        'Candidates & Data' => '#f472b6', // pink
+                        'Trust & Finance' => '#fb7185',   // rose
+                        'Settings' => '#a3e635',          // lime
+                        'Account' => '#cbd5e1',           // slate
+                    ];
+                @endphp
                 @foreach($adminNavSections as $adminSectionLabel => $adminSectionItems)
                     @php $adminVisibleItems = array_filter($adminSectionItems, fn ($item) => $adminNavCanRoute($item['route'])); @endphp
                     @if(count($adminVisibleItems) || ($adminSectionLabel === 'Content' && $adminCanSubmitPublicSource))
                         @php $adminPanelId = 'sidebar-panel-admin-' . \Illuminate\Support\Str::slug($adminSectionLabel); @endphp
-                        <div class="{{ $loop->first ? '' : 'mt-2' }}" data-sidebar-key="admin:{{ $adminSectionLabel }}">
+                        <div class="sidebar-section-accented {{ $loop->first ? '' : 'mt-2' }}" style="--section-accent: {{ $adminSectionAccents[$adminSectionLabel] ?? '#94a3b8' }}" data-sidebar-key="admin:{{ $adminSectionLabel }}">
                             <button type="button" class="sidebar-section-toggle" data-sidebar-toggle aria-expanded="true" aria-controls="{{ $adminPanelId }}"><span>{{ $adminSectionLabel }}</span><svg class="sidebar-chevron" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
                             <div class="space-y-1" data-sidebar-body id="{{ $adminPanelId }}">
                                 @foreach($adminVisibleItems as $item)
