@@ -28,6 +28,8 @@ it('alerts when a step has no recent run', function () {
     cleanupMetric(['step' => 'race-count-control']);
     cleanupMetric(['step' => 'measure-committee-links']);
     cleanupMetric(['step' => 'cal-access-finance']);
+    cleanupMetric(['step' => 'fl-finance']);
+    cleanupMetric(['step' => 'tx-finance']);
 
     $this->artisan('politicians:check-cleanup-health')->assertExitCode(0);
 
@@ -45,6 +47,8 @@ it('does not alert when every step ran recently and counts line up', function ()
     cleanupMetric(['step' => 'race-count-control', 'findings_count' => 0]);
     cleanupMetric(['step' => 'measure-committee-links']);
     cleanupMetric(['step' => 'cal-access-finance']);
+    cleanupMetric(['step' => 'fl-finance']);
+    cleanupMetric(['step' => 'tx-finance']);
     $pol = Politician::factory()->create(['slug' => 'health-check-'.fake()->unique()->numerify('####')]);
     PoliticianCleanupReview::create([
         'review_type' => PoliticianCleanupReview::TYPE_DEACTIVATE, 'politician_id' => $pol->id,
@@ -100,6 +104,8 @@ it('does not count other steps\' merge reviews, and counts findings still pendin
     cleanupMetric(['step' => 'race-count-control', 'findings_count' => 0]);
     cleanupMetric(['step' => 'measure-committee-links']);
     cleanupMetric(['step' => 'cal-access-finance']);
+    cleanupMetric(['step' => 'fl-finance']);
+    cleanupMetric(['step' => 'tx-finance']);
     $pol = Politician::factory()->create(['slug' => 'health-check-'.fake()->unique()->numerify('####')]);
     // Queued yesterday and re-found today: still one pending review, claimed again as 1.
     PoliticianCleanupReview::create([
@@ -128,6 +134,8 @@ it('treats zero out-of-control races as healthy and alerts when they rise', func
     cleanupMetric(['step' => 'prune-junk-ecrs', 'findings_count' => 1]);
     cleanupMetric(['step' => 'measure-committee-links']);
     cleanupMetric(['step' => 'cal-access-finance']);
+    cleanupMetric(['step' => 'fl-finance']);
+    cleanupMetric(['step' => 'tx-finance']);
 
     $this->artisan('politicians:check-cleanup-health')->assertExitCode(0);
 

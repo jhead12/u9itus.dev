@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Notification;
 
 /**
  * Analyze + Control pass over politician_cleanup_run_metrics (populated by
- * FlagSuspectProfiles, PruneJunkEcrs, RaceCountControl, AuditMeasureCommitteeLinks and ImportCalAccessCommitteeFinance self-reporting at the end of their own
+ * FlagSuspectProfiles, PruneJunkEcrs, RaceCountControl, AuditMeasureCommitteeLinks and the state finance importers self-reporting at the end of their own
  * handle()). Runs daily as the last step of .github/workflows/politicians-cleanup.yml.
  *
  * Three checks, each independently simple — this is deliberately not a full
@@ -53,6 +53,10 @@ class CheckPoliticiansCleanupHealth extends Command
         'measure-committee-links' => true,
         // Finance anomalies (a committee's year-to-date total going down) in the CAL-ACCESS import.
         'cal-access-finance' => true,
+        // Finance anomalies in the Florida Division of Elections import.
+        'fl-finance' => true,
+        // Finance anomalies in the Texas Ethics Commission import.
+        'tx-finance' => true,
     ];
 
     public function handle(): int

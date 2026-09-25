@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\BallotMeasure;
 use App\Models\BallotMeasureCommittee;
 use App\Models\CommitteeDonor;
 use App\Models\CommitteeFiler;
@@ -21,12 +22,17 @@ use Illuminate\Support\Collection;
 class MeasureFunding
 {
     /**
+     * Totals come from each committee's latest statement — or, once the measure's election
+     * has passed, its latest statement in the election year, so a decided measure shows the
+     * money raised for it rather than the committee's next campaign.
+     *
      * @param  Collection<int, BallotMeasureCommittee>  $verified
      * @return array<string, array<string, mixed>> keyed by position (support|oppose)
      */
-    public static function forCommittees(Collection $verified): array
+    public static function forCommittees(Collection $verified, ?BallotMeasure $measure = null): array
     {
-        $snapshots = CommitteeFinanceSnapshot::latestForLinks($verified);
+        $year = $measure?->election_date !== null && $measure->election_date->isPast() ? $measure->election_date->year : null;
+        $snapshots = CommitteeFinanceSnapshot::latestForLinks($verified, $year);
         $filers = CommitteeFiler::query()
             ->whereIn('committee_id', $verified->pluck('committee_id')->unique()->values())
             ->get()->keyBy(fn (CommitteeFiler $f) => CommitteeFinanceSnapshot::keyFor($f->state, $f->committee_id));
@@ -53,10 +59,14 @@ class MeasureFunding
             $snapshot = $snapshots->get($key);
             $filer = $filers->get($key);
 
+            // Late contributions follow the committee's latest statement, so they only apply
+            // when that's the statement being shown.
+            $isLatest = $snapshot !== null && $filer?->late_since !== null && $snapshot->period_end?->isSameDay($filer->late_since);
+
             return [
                 'link' => $link,
                 'snapshot' => $snapshot,
-                'late' => $snapshot !== null ? (float) ($filer?->late_contributions ?? 0) : 0.0,
+                'late' => $isLatest ? (float) ($filer->late_contributions ?? 0) : 0.0,
                 'late_since' => $filer?->late_since,
             ];
         });
@@ -87,6 +97,7 @@ class MeasureFunding
         return [
             'committees' => $rows,
             'has_money' => $withMoney->isNotEmpty(),
+            'year' => $withMoney->map(fn ($r) => $r['snapshot']->period_end?->year)->filter()->max(),
             'raised' => $raised,
             'transfers' => $transfers,
             'net_raised' => round($raised - $transfers, 2),

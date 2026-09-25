@@ -29,6 +29,7 @@ class CommitteeFinanceSnapshot extends Model
         'declared_measure_number',
         'declared_measure_name',
         'declared_position',
+        'declared_measures',
     ];
 
     protected function casts(): array
@@ -42,7 +43,31 @@ class CommitteeFinanceSnapshot extends Model
             'nonmonetary_ytd' => 'float',
             'expenditures_ytd' => 'float',
             'cash_on_hand' => 'float',
+            'declared_measures' => 'array',
         ];
+    }
+
+    /**
+     * Every measure this filing declares, as number / position / election_date /
+     * description entries. Falls back to the single declared_* columns.
+     *
+     * @return list<array{number: ?string, position: ?string, election_date: ?string, description: ?string}>
+     */
+    public function declaredMeasures(): array
+    {
+        if (! empty($this->declared_measures)) {
+            return array_values($this->declared_measures);
+        }
+        if ($this->declared_measure_number === null && $this->declared_position === null) {
+            return [];
+        }
+
+        return [[
+            'number' => $this->declared_measure_number,
+            'position' => $this->declared_position,
+            'election_date' => null,
+            'description' => $this->declared_measure_name,
+        ]];
     }
 
     public static function keyFor(string $state, string $committeeId): string
@@ -61,12 +86,13 @@ class CommitteeFinanceSnapshot extends Model
     }
 
     /**
-     * Latest filing for each committee in $links, keyed by keyFor().
+     * Latest filing for each committee in $links, keyed by keyFor() — optionally the latest
+     * within one calendar year (a decided measure's election year).
      *
      * @param  iterable<BallotMeasureCommittee>  $links
      * @return Collection<string, self>
      */
-    public static function latestForLinks(iterable $links): Collection
+    public static function latestForLinks(iterable $links, ?int $year = null): Collection
     {
         $links = collect($links);
         if ($links->isEmpty()) {
@@ -76,6 +102,7 @@ class CommitteeFinanceSnapshot extends Model
         return self::query()
             ->whereIn('committee_id', $links->pluck('committee_id')->unique()->values())
             ->whereIn('state', $links->pluck('state')->unique()->values())
+            ->when($year !== null, fn ($q) => $q->whereBetween('period_end', ["{$year}-01-01", "{$year}-12-31"]))
             ->orderByDesc('period_end')->orderByDesc('filed_on')->orderByDesc('id')
             ->get()
             ->unique(fn (self $s) => self::keyFor($s->state, $s->committee_id))
