@@ -12,6 +12,7 @@ import { resizeRenderer } from '../scene/setup.js';
 import { formatCalendarDate } from '../utils/dates.js';
 import { initialComparisonSelection, renderComparison } from './candidate-comparison.js';
 import { renderProvenance } from './data-report.js';
+import { districtShareUrl, shareLink } from './share-link.js';
 
 const polDrawer = document.getElementById('pol-drawer');
 const polDrawerClose = document.getElementById('pol-drawer-close');
@@ -19,7 +20,6 @@ const polHeroEl = document.getElementById('pol-hero');
 const polBodyEl = document.getElementById('pol-body');
 const polProvenanceEl = document.getElementById('pol-provenance');
 const polTabBtns = polDrawer?.querySelectorAll('.pol-tab') ?? [];
-const toastEl = document.getElementById('map-toast');
 let _polTab = 'overview';
 let _polCtx = null;
 let _overviewReqSeq = 0;
@@ -54,40 +54,6 @@ function deriveDistrictNumber(c, extra, stateAbbr) {
     if (!match) return null;
     if (stateAbbr && match[1] !== stateAbbr) return null;
     return match[2];
-}
-
-function showToast(message, type = 'info') {
-    if (!toastEl) return;
-    toastEl.textContent = message;
-    toastEl.className = 'map-toast visible ' + type;
-    setTimeout(() => toastEl.classList.remove('visible'), 3500);
-}
-
-async function shareDistrictLink(button) {
-    const url = button.dataset.shareUrl;
-    const label = button.dataset.shareLabel || 'this district';
-    if (!url) return;
-
-    trackEvent('district_share_click', { district_label: label, state: activeState || null });
-
-    const shareData = { title: `${label} on U9itus`, text: `Check out ${label} on U9itus`, url };
-    if (navigator.share) {
-        try {
-            await navigator.share(shareData);
-            return;
-        } catch (error) {
-            if (!error || error.name === 'AbortError') return;
-        }
-    }
-
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(url);
-            showToast('Share link copied to clipboard', 'info');
-        }
-    } catch (error) {
-        console.error('[map] shareDistrictLink: failed to copy link', error);
-    }
 }
 
 function safeUrl(url) {
@@ -1138,21 +1104,13 @@ function _renderPolBody() {
             links.push(`<a href="${browseUrl}" class="pol-link pol-link-alt">${browseLabel}</a>`);
         }
 
-        // District share link mirrors the __mapGoTo deep-link params (deep-link.js)
-        // so recipients land back on this exact district. The viewer's referral
-        // code (window.U9.session, hydrated from the `u9-ref-code` meta tag) is
-        // attached so a signup from the shared link gets attributed to them.
+        // District share link — see share-link.js for the deep-link params
+        // and the referral code it carries.
         const districtLabel = stateAbbr
             ? (districtNumber ? `${stateAbbr}-${districtNumber}` : stateAbbr)
             : null;
         if (districtLabel) {
-            const shareParams = new URLSearchParams();
-            shareParams.set('state', stateAbbr);
-            if (districtNumber) shareParams.set('district', districtNumber);
-            if (c.slug) shareParams.set('slug', c.slug);
-            const refCode = window.U9?.session?.referralCode;
-            if (refCode) shareParams.set('ref', refCode);
-            const shareUrl = `${window.location.origin}/map?${shareParams.toString()}`;
+            const shareUrl = districtShareUrl(stateAbbr, districtNumber, c.slug);
             links.push(`<button type="button" class="pol-link pol-link-alt pol-share-btn" data-share-url="${escapeHtml(shareUrl)}" data-share-label="${escapeHtml(districtLabel)}">🔗 Share ${escapeHtml(districtLabel)}</button>`);
         }
 
@@ -1218,7 +1176,7 @@ export function initPolDrawer() {
 
         if (e.target.closest('[data-compare-retry]')) loadCandidateComparison();
         const shareBtn = e.target.closest('[data-share-url]');
-        if (shareBtn) shareDistrictLink(shareBtn);
+        if (shareBtn) shareLink(shareBtn.dataset.shareUrl, shareBtn.dataset.shareLabel);
     });
 
     polDrawer.addEventListener('change', e => {

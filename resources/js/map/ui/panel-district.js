@@ -16,6 +16,7 @@ import { districtCode, houseCandidatesFor, seatedMember } from '../utils/distric
 import { renderRunningCandidatesSection } from './panel-running-candidates.js';
 import { markActiveDistrictRow } from './panel-districts.js';
 import { escapeHtml } from '../utils/html.js';
+import { createShareButton, districtShareUrl, syncDistrictUrl } from './share-link.js';
 
 /** Cap on the plain Census-boundary city list, largest-by-land-area first. */
 const MAX_BOUNDARY_CITIES = 15;
@@ -118,6 +119,8 @@ export function getOpenDistrict() { return openDistrict; }
 export function clearOpenDistrict() {
     openDistrict = null;
     document.getElementById('panel-fav-btn')?.remove();
+    document.getElementById('panel-share-btn')?.remove();
+    syncDistrictUrl();
 }
 
 /** Re-render the open district (e.g. once the state payload or boundaries arrive). */
@@ -403,7 +406,8 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
 }
 
 /**
- * Mount (or refresh) the save-boundary star in the district panel header.
+ * Mount (or refresh) the save-boundary star and share button in the district
+ * panel header, and point the address bar at this district.
  * Replaces any prior instance so repeated panel opens don't stack buttons.
  */
 function mountDistrictFav(stateName, stateAbbr, districtNum, districtLabel) {
@@ -418,4 +422,10 @@ function mountDistrictFav(stateName, stateAbbr, districtNum, districtLabel) {
     });
     btn.id = 'panel-fav-btn';
     host.appendChild(btn);
+
+    document.getElementById('panel-share-btn')?.remove();
+    const shareBtn = createShareButton(districtShareUrl(stateAbbr, districtNum), districtCode(stateAbbr, districtNum));
+    shareBtn.id = 'panel-share-btn';
+    host.appendChild(shareBtn);
+    syncDistrictUrl(stateAbbr, districtNum);
 }

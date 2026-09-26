@@ -1025,7 +1025,8 @@ body:has(#pol-drawer.open) #hint { display: none; }
 .boundary-fav-btn.saved { color: #fbbf24; border-color: rgba(251,191,36,0.55); background: rgba(251,191,36,0.14); }
 .boundary-fav-btn.saved:hover { color: #fbbf24; border-color: rgba(251,191,36,0.75); background: rgba(251,191,36,0.22); }
 /* Star lives inline after the badge in the district panel header */
-#panel-fav-btn { margin-left: 6px; vertical-align: middle; }
+#panel-fav-btn, #panel-share-btn { margin-left: 6px; vertical-align: middle; }
+.boundary-share-btn:hover { color: #c7d2fe; border-color: rgba(99,102,241,0.45); background: rgba(99,102,241,0.16); }
 /* Star lives in the city drawer hero info */
 .pol-hero-info .boundary-fav-btn { margin-top: 6px; align-self: flex-start; }
 /* Name + follow/save star sit on one line, right next to the h2 (overrides
