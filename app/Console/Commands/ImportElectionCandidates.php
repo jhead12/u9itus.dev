@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ElectionCandidateRecord;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class ImportElectionCandidates extends Command
 {
@@ -125,12 +126,18 @@ class ImportElectionCandidates extends Command
             ];
         }
 
-        $externalId = $this->buildExternalId($source, $fullName, $row, $idx);
+        $hasExplicitId = trim((string) ($row['external_candidate_id'] ?? '')) !== '';
+        $externalId = $this->buildExternalId($fullName, $row);
         $payload = $this->buildPayload($fullName, $row);
 
+        // Without an explicit id, a row that was imported before under a different
+        // derived id (the old one hashed in the row's position) is still the same
+        // candidate — find it by who and where, and keep its id.
         $existing = ElectionCandidateRecord::where('source', $source)
             ->where('external_candidate_id', $externalId)
-            ->first();
+            ->first()
+            ?? ($hasExplicitId ? null : $this->findByIdentity($source, $payload));
+        $externalId = $existing?->external_candidate_id ?? $externalId;
 
         $changes = $this->buildFieldDiff($existing, $payload);
 
@@ -254,7 +261,7 @@ class ImportElectionCandidates extends Command
     /**
      * @param array<string, mixed> $row
      */
-    protected function buildExternalId(string $source, string $fullName, array $row, int $idx): string
+    protected function buildExternalId(string $fullName, array $row): string
     {
         $externalId = trim((string) ($row['external_candidate_id'] ?? ''));
 
@@ -262,14 +269,46 @@ class ImportElectionCandidates extends Command
             return $externalId;
         }
 
-        return substr(
-            hash(
-                'sha256',
-                $source . '|' . $fullName . '|' . ($row['political_office'] ?? '') . '|' . ($row['state'] ?? '') . '|' . ($row['district'] ?? '') . '|' . $idx
-            ),
-            0,
-            32
-        );
+        // Derived from who the candidate is and which race, never the row's position,
+        // so re-importing a reordered or re-exported file finds the same record.
+        $year = substr(trim((string) ($row['election_date'] ?? '')), 0, 4);
+
+        return implode(':', [
+            'auto',
+            strtolower(trim((string) ($row['state'] ?? ''))) ?: 'xx',
+            Str::slug((string) ($row['political_office'] ?? '')) ?: 'office',
+            Str::slug((string) ($row['city'] ?? $row['county'] ?? '')) ?: 'na',
+            Str::slug((string) ($row['district'] ?? '')) ?: 'na',
+            Str::slug($fullName) ?: 'name',
+            preg_match('/^\d{4}$/', $year) ? $year : 'na',
+        ]);
+    }
+
+    /**
+     * The same candidate in the same race, matched on name, office and place.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    protected function findByIdentity(string $source, array $payload): ?ElectionCandidateRecord
+    {
+        $query = ElectionCandidateRecord::where('source', $source)
+            ->whereRaw('LOWER(full_name) = ?', [mb_strtolower($payload['full_name'])]);
+
+        foreach (['political_office', 'state', 'city', 'district'] as $field) {
+            $payload[$field] === null
+                ? $query->whereNull($field)
+                : $query->where($field, $payload[$field]);
+        }
+
+        if ($payload['election_date'] !== null) {
+            $query->whereYear('election_date', substr($payload['election_date'], 0, 4));
+        }
+
+        // Several matches mean the source itself lists this person more than once;
+        // guessing between them would merge distinct rows, so treat it as new.
+        $matches = $query->limit(2)->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /**
