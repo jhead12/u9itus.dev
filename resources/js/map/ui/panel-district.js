@@ -16,7 +16,9 @@ import { districtCode, houseCandidatesFor, seatedMember } from '../utils/distric
 import { renderRunningCandidatesSection } from './panel-running-candidates.js';
 import { markActiveDistrictRow } from './panel-districts.js';
 import { escapeHtml } from '../utils/html.js';
-import { createShareButton, districtShareUrl, syncDistrictUrl } from './share-link.js';
+import { createShareButton, districtShareUrl } from './share-link.js';
+import { recordLocation } from '../navigation/history.js';
+import { updateBreadcrumb } from './breadcrumb.js';
 
 /** Cap on the plain Census-boundary city list, largest-by-land-area first. */
 const MAX_BOUNDARY_CITIES = 15;
@@ -120,7 +122,6 @@ export function clearOpenDistrict() {
     openDistrict = null;
     document.getElementById('panel-fav-btn')?.remove();
     document.getElementById('panel-share-btn')?.remove();
-    syncDistrictUrl();
 }
 
 /** Re-render the open district (e.g. once the state payload or boundaries arrive). */
@@ -220,6 +221,8 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     const sameDistrict = openDistrict?.num === String(districtNum) && openDistrict?.stateName === stateName;
     if (!sameDistrict) snapOpen = 'rep';
     openDistrict = { num: String(districtNum), label: districtLabel, stateName, regionHex, party };
+    recordLocation({ level: 'district', region: activeRegion, state: stateName, district: String(districtNum) });
+    updateBreadcrumb();
 
     const infoPanel = document.getElementById('info-panel');
     infoPanel.dataset.view = 'district';
@@ -238,7 +241,10 @@ export async function openDistrictPanel(districtNum, districtLabel, stateName, r
     markActiveDistrictRow(districtNum);
     // No-op until the boundaries have loaded; mode-transitions re-applies it then.
     selectDistrict(meshesForDistrict(districtNum));
-    openInfoPanel();
+    // A newly selected district is the thing the user wants to read: open the
+    // sheet full. Re-renders of the same district (data arriving) keep the
+    // reader's sheet height and focus.
+    if (!sameDistrict || !infoPanel.classList.contains('open')) openInfoPanel({ sheet: 'full' });
 
     const candEl = document.getElementById('panel-candidates');
     const payloadReady = !!stateData?.house_candidates;
@@ -427,5 +433,4 @@ function mountDistrictFav(stateName, stateAbbr, districtNum, districtLabel) {
     const shareBtn = createShareButton(districtShareUrl(stateAbbr, districtNum), districtCode(stateAbbr, districtNum));
     shareBtn.id = 'panel-share-btn';
     host.appendChild(shareBtn);
-    syncDistrictUrl(stateAbbr, districtNum);
 }

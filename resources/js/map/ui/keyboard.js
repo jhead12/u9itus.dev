@@ -55,6 +55,9 @@ export function stepZoom(factor) {
     controls.update();
 }
 
+/** True when a key press is aimed at the map itself rather than a control. */
+const onMap = (e) => e.target === document.body || e.target === mapRegion;
+
 /**
  * Set up all keyboard event listeners.
  */
@@ -109,11 +112,15 @@ export function initKeyboard() {
                 e.preventDefault();
                 openFindDistrict();
                 break;
+            // Arrows tilt only when the map (or nothing) has focus, so they still
+            // scroll the panel and move through controls everywhere else.
             case 'ArrowUp':
+                if (!onMap(e)) break;
                 e.preventDefault();
                 tiltCamera(-TILT_STEP, 1.0);
                 break;
             case 'ArrowDown':
+                if (!onMap(e)) break;
                 e.preventDefault();
                 tiltCamera(+TILT_STEP, 1.0);
                 break;

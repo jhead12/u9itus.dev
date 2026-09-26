@@ -14,7 +14,6 @@ const HIDDEN_WHILE_OPEN = [
     'panel-running-candidates',
     'offices-toggle',
     'panel-candidates',
-    'panel-topics',
     'panel-ballot-measures',
 ];
 

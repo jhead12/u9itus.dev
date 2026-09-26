@@ -196,11 +196,13 @@ function scoreMatch(item, q) {
 function renderSearchResults(q) {
     searchActiveIdx = -1;
     searchResults.innerHTML = '';
+    searchInput.removeAttribute('aria-activedescendant');
 
     if (!q.trim()) {
         searchEmpty.style.display = 'none';
         const ql = document.createElement('div');
         ql.className = 'sr-group-label';
+        ql.setAttribute('role', 'presentation');
         ql.textContent = 'Quick picks — regions';
         searchResults.appendChild(ql);
         for (const [rName, r] of Object.entries(REGIONS)) {
@@ -234,25 +236,29 @@ function renderSearchResults(q) {
 
     if (states.length) {
         const gl = document.createElement('div');
-        gl.className = 'sr-group-label'; gl.textContent = 'States';
+        gl.className = 'sr-group-label';
+        gl.setAttribute('role', 'presentation'); gl.textContent = 'States';
         searchResults.appendChild(gl);
         states.forEach(x => appendResult(x.item));
     }
     if (cities.length) {
         const gl = document.createElement('div');
-        gl.className = 'sr-group-label'; gl.textContent = 'Cities';
+        gl.className = 'sr-group-label';
+        gl.setAttribute('role', 'presentation'); gl.textContent = 'Cities';
         searchResults.appendChild(gl);
         cities.forEach(x => appendResult(x.item));
     }
     if (districts.length) {
         const gl = document.createElement('div');
-        gl.className = 'sr-group-label'; gl.textContent = 'Congressional Districts';
+        gl.className = 'sr-group-label';
+        gl.setAttribute('role', 'presentation'); gl.textContent = 'Congressional Districts';
         searchResults.appendChild(gl);
         districts.forEach(x => appendResult(x.item));
     }
     if (politicians.length) {
         const gl = document.createElement('div');
-        gl.className = 'sr-group-label'; gl.textContent = 'Politicians';
+        gl.className = 'sr-group-label';
+        gl.setAttribute('role', 'presentation'); gl.textContent = 'Politicians';
         searchResults.appendChild(gl);
         politicians.forEach(pol => {
             const color = partyColor(pol.party);
@@ -268,7 +274,8 @@ function renderSearchResults(q) {
     }
     if (businesses.length) {
         const gl = document.createElement('div');
-        gl.className = 'sr-group-label'; gl.textContent = 'Local Businesses';
+        gl.className = 'sr-group-label';
+        gl.setAttribute('role', 'presentation'); gl.textContent = 'Local Businesses';
         searchResults.appendChild(gl);
         businesses.forEach(biz => {
             const color = CATEGORY_COLOR[biz.category] || CATEGORY_COLOR.other;
@@ -288,7 +295,9 @@ function appendResult(item) {
     const el = document.createElement('div');
     el.className   = 'sr-item';
     el.setAttribute('role', 'option');
+    el.setAttribute('aria-selected', 'false');
     el.dataset.idx = searchResults.querySelectorAll('.sr-item').length;
+    el.id = `sr-opt-${el.dataset.idx}`;
 
     const icon = item.type === 'state'      ? '🏛'
                : item.type === 'city'       ? '🏙'
@@ -314,8 +323,14 @@ function appendResult(item) {
 
 function setActiveIdx(idx) {
     const items = searchResults.querySelectorAll('.sr-item');
-    items.forEach((el, i) => el.classList.toggle('active', i === idx));
+    items.forEach((el, i) => {
+        el.classList.toggle('active', i === idx);
+        el.setAttribute('aria-selected', String(i === idx));
+    });
     searchActiveIdx = idx;
+    // Lets screen readers follow the highlight while focus stays in the input.
+    if (items[idx]) searchInput.setAttribute('aria-activedescendant', items[idx].id);
+    else searchInput.removeAttribute('aria-activedescendant');
 }
 
 async function activateResult(item) {
@@ -412,7 +427,11 @@ export function openSearch() {
 }
 
 export function closeSearch() {
+    if (!searchOverlay.classList.contains('open')) return;
     searchOverlay.classList.remove('open');
+    searchInput.removeAttribute('aria-activedescendant');
+    // Back to the opener; choosing a result moves focus on to the info panel.
+    document.getElementById('btn-search')?.focus({ preventScroll: true });
 }
 
 /**
@@ -461,6 +480,8 @@ export function initSearch() {
             closeSearch();
         }
     });
+
+    document.getElementById('search-kbd')?.addEventListener('click', closeSearch);
 
     // Click backdrop to close
     searchOverlay.addEventListener('click', e => {

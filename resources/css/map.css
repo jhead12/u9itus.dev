@@ -287,10 +287,12 @@ kbd {
 }
 #search-input::placeholder { color: #7c8aa5; }
 #search-kbd {
-    font-size: 10px; color: #334155; flex-shrink: 0;
-    border: 1px solid #1e293b; border-radius: 4px;
+    font-size: 10px; color: #94a3b8; flex-shrink: 0; cursor: pointer;
+    background: none; border: 1px solid #334155; border-radius: 4px;
     padding: 2px 6px; font-family: monospace;
 }
+#search-kbd:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.search-close-text { display: none; }
 #search-results {
     max-height: 380px; overflow-y: auto;
     padding: 8px 0;
@@ -328,14 +330,14 @@ kbd {
 }
 #search-empty {
     padding: 28px 18px; text-align: center;
-    color: #334155; font-size: 13px;
+    color: #94a3b8; font-size: 13px;
     display: none;
 }
 #search-footer {
     border-top: 1px solid rgba(99,102,241,0.1);
     padding: 8px 18px;
     display: flex; gap: 16px; align-items: center;
-    font-size: 10px; color: #334155;
+    font-size: 10px; color: #94a3b8;
 }
 #search-footer kbd {
     border: 1px solid #1e293b; border-radius: 3px;
@@ -825,10 +827,24 @@ body:has(#pol-drawer.open) #hint { display: none; }
     padding: 0 16px 0 24px; height: 32px;
     display: flex; align-items: center; justify-content: space-between;
 }
+.bc-list { display: flex; align-items: center; margin: 0; padding: 0; list-style: none; min-width: 0; }
+#breadcrumb { min-width: 0; }
+.bc-list > li { display: flex; align-items: center; min-width: 0; flex-shrink: 1; }
+/* Long paths (e.g. Southeast › North Carolina › District 13) truncate rather than push Help off screen. */
+.bc-list > li > .bc-item { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-list > li > .bc-sep { flex-shrink: 0; }
+.bc-list > li:last-child { flex-shrink: 0.5; }
+/* Set by breadcrumb.js when the steps would be cut short: drop "Overview" (the region step and Back still lead there). */
+.bc-list.bc-compact > li:first-child { display: none; }
 .bc-item { color: #94a3b8; font-size: 12px; }
-.bc-link { color: #a5b4fc; cursor: pointer; text-decoration: none; }
-.bc-link:hover { color: #c7d2fe; }
-.bc-active { color: #e2e8f0; font-weight: 600; }
+.bc-link {
+    color: #a5b4fc; cursor: pointer; text-decoration: none;
+    background: none; border: 0; border-radius: 6px; padding: 0 4px; margin: 0 -4px;
+    min-height: 24px; font: inherit; font-size: 12px;
+}
+.bc-link:hover { color: #c7d2fe; text-decoration: underline; }
+.bc-link:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 1px; }
+.bc-active { color: #e2e8f0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bc-sep { color: #64748b; margin: 0 8px; font-size: 13px; }
 
 /* District tooltip */
@@ -1093,6 +1109,22 @@ body:has(#pol-drawer.open) #hint { display: none; }
 #legend.legend-collapsed #legend-note { display: none; }
 #legend.legend-collapsed #legend-toggle-icon { display: inline; transform: rotate(-90deg); }
 #legend-toggle-icon { display: inline-block; transition: transform 0.2s; }
+.sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+#legend-toggle {
+    display: flex; align-items: center; gap: 4px; width: 100%; min-height: 24px; padding: 0;
+    background: none; border: 0; border-radius: 6px; cursor: pointer;
+    color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left;
+}
+#legend-toggle:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+#legend-toggle-icon { font-size: 9px; opacity: .6; }
+/* The toggle is the collapsed legend's only control: it fills the chip so the
+   whole chip is the tap target (WCAG 2.5.8). */
+#legend.legend-collapsed { padding: 0; }
+#legend.legend-collapsed h3 { margin: 0; }
+#legend.legend-collapsed #legend-toggle { padding: 16px 20px; }
 
 /* ══════════════════════════════════════════
    TOUCH TARGETS — any touch-primary device
@@ -1135,8 +1167,11 @@ body:has(#pol-drawer.open) #hint { display: none; }
     #mobile-menu-btn { min-width: 44px; min-height: 44px; }
 
     /* Breadcrumb */
-    #breadcrumb-bar { top: 48px; padding: 0 10px; height: 28px; }
-    .bc-item, .bc-link, .bc-active { font-size: 11px; }
+    /* Tall enough for 32px breadcrumb buttons (the way back on phones). */
+    #breadcrumb-bar { top: 48px; padding: 0 10px; height: 36px; }
+    .bc-item, .bc-link, .bc-active { font-size: 12px; }
+    .bc-link { min-height: 32px; padding: 0 6px; margin: 0 -6px; }
+    .bc-sep { margin: 0 6px; }
 
     /* ── #map-menu-sheet: Layers + Controls become one bottom sheet ──
        #layers-wrap/#controls-wrap stack instead of sitting in the desktop
@@ -1221,13 +1256,14 @@ body:has(#pol-drawer.open) #hint { display: none; }
     /* Legend — compact, top-left below breadcrumb */
     #legend {
         bottom: auto;
-        top: 80px;
+        top: 90px;
         left: 10px;
         padding: 8px 12px;
         min-width: 0;
         border-radius: 10px;
     }
     #legend h3 { font-size: 10px; margin-bottom: 7px; }
+    #legend.legend-collapsed #legend-toggle { padding: 10px 12px; }
     #legend-mode button { padding: 4px 6px; font-size: 10px; }
     #legend-note { font-size: 10px; max-width: 170px; margin-bottom: 7px; }
     .legend-name { font-size: 11px; }
@@ -1237,7 +1273,7 @@ body:has(#pol-drawer.open) #hint { display: none; }
 
     /* Hide redundant hint; simplify progress toaster */
     #hint { display: none; }
-    #dist-progress { bottom: auto; top: 82px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
+    #dist-progress { bottom: auto; top: 90px; right: 10px; left: auto; transform: none; font-size: 11px; padding: 8px 14px; }
 
     /* Search overlay adjustments */
     #search-overlay { padding-top: 60px; padding-left: 8px; padding-right: 8px; }
@@ -1257,7 +1293,7 @@ body:has(#pol-drawer.open) #hint { display: none; }
     #cand-popup { max-height: 85vh; }
     .popup-stats { flex-direction: column; gap: 6px; }
     .popup-stat { padding: 6px 10px; }
-    #legend { top: 76px; }
+    #legend { top: 90px; }
     #kb-help-box { padding: 20px 18px; max-height: 90vh; }
 }
 
@@ -1816,7 +1852,6 @@ body:has(#pol-drawer.open) #map-first-hint { display: none; }
 #info-panel[data-view="district"] > #panel-districts { order: 3; }
 #info-panel[data-view="district"] > #panel-running-candidates { order: 4; }
 #info-panel[data-view="district"] > #panel-stats { order: 5; }
-#info-panel[data-view="district"] > #panel-topics { order: 6; }
 #info-panel[data-view="district"] > #panel-ballot-measures { order: 7; }
 #info-panel[data-view="district"] > #panel-states-wrap { order: 30; }
 /* The offices toggle collapses #panel-candidates — in this view that holds the
@@ -1995,7 +2030,7 @@ details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline
     .top-btn-primary { height: 44px; }
 
     /* Touch users have no keyboard shortcuts; Help still links to them. */
-    #kb-hint-badge, .bc-extra { display: none; }
+    #kb-hint-badge, .bc-list > li.bc-extra { display: none; }
     #breadcrumb { white-space: nowrap; }
     #breadcrumb-bar > div:first-child { min-width: 0; }
     #map-help-popover { left: 0; max-width: min(280px, calc(100vw - 24px)); }
@@ -2089,4 +2124,33 @@ details.pd-section > summary:focus-visible { outline: 2px solid #a5b4fc; outline
 @media (max-width: 768px) {
     .map-toast { bottom: auto; top: 118px; transform: translateX(-50%) translateY(-12px); max-width: calc(100vw - 24px); text-align: center; }
     .map-toast.visible { transform: translateX(-50%) translateY(0); }
+}
+
+/* ══════════════════════════════════════════
+   Mobile accessibility: focus target, touch target sizes (WCAG 2.5.8)
+══════════════════════════════════════════ */
+/* The panel title takes focus when a place is selected; show a ring only for keyboard users. */
+#panel-state:focus { outline: none; }
+#panel-state:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 4px; }
+
+@media (pointer: coarse) {
+    #map-help-badge { height: 32px; }
+    #panel-header .boundary-fav-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; }
+    #panel-districts summary.pd-title { padding-block: 14px; margin-bottom: 0; }
+    #map-first-hint button[data-hint-close] { width: 32px; height: 32px; }
+    #panel-states .state-chip { min-height: 32px; }
+    #panel-states-summary { padding-block: 14px; }
+    /* Map pills stay small so they don't crowd the map; an invisible band
+       makes each one at least 28px tall to tap. */
+    .map-label::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: max(100%, 28px); transform: translateY(-50%); }
+}
+
+@media (max-width: 768px) {
+    /* 3D view is still in the menu (Controls → 3D view); the bar keeps only Help. */
+    #btn-3d { display: none; }
+    /* Touch users have no Esc or arrow keys: a real Cancel button, no key hints. */
+    #search-kbd { min-height: 44px; padding: 0 12px; font: inherit; font-size: 13px; color: #c7d2fe; border-color: rgba(99,102,241,0.4); }
+    .search-close-key { display: none; }
+    .search-close-text { display: inline; }
+    #search-footer span:has(kbd) { display: none; }
 }
