@@ -286,17 +286,37 @@ case "$PROCESS_ROLE" in
       echo "ENABLE_REVERB=false — forcing BROADCAST_DRIVER=log for web role"
     fi
 
-    # php artisan serve defaults to a single worker, so one slow request (external
-    # API call, upload processing, etc.) blocks every other request, including "/",
-    # until it clears or the client gives up. Default to 4 workers; override via the
-    # PHP_CLI_SERVER_WORKERS Railway env var if the instance has more/fewer CPUs.
-    export PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-4}"
+    # nginx serves static files itself and hands PHP to a php-fpm worker pool
+    # (opcache on). `php artisan serve` was PHP's single-process dev server: every
+    # request, even robots.txt, queued behind a handful of workers.
+    # Pool size: override with PHP_FPM_MAX_CHILDREN (each worker is ~50-100MB).
+    export PHP_FPM_MAX_CHILDREN="${PHP_FPM_MAX_CHILDREN:-12}"
+    export PHP_FPM_START_SERVERS="${PHP_FPM_START_SERVERS:-4}"
+    export PHP_FPM_MIN_SPARE="${PHP_FPM_MIN_SPARE:-2}"
+    export PHP_FPM_MAX_SPARE="${PHP_FPM_MAX_SPARE:-6}"
 
-    echo "Starting Laravel web server..."
+    # Only ${PORT} is substituted: the rest of the template uses nginx's own $variables.
+    sed "s/\${PORT}/${PORT}/g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+    nginx -t 2>&1 || { echo "FATAL: invalid nginx config"; exit 1; }
+    php-fpm -t 2>&1 || { echo "FATAL: invalid php-fpm config"; exit 1; }
+
+    echo "Starting nginx + php-fpm..."
     echo "PORT: $PORT"
-    echo "PHP_CLI_SERVER_WORKERS: $PHP_CLI_SERVER_WORKERS"
-    echo "Command: php artisan serve --host=0.0.0.0 --port=$PORT --no-reload"
-    exec php artisan serve --host=0.0.0.0 --port=$PORT --no-reload 2>&1
+    echo "PHP_FPM_MAX_CHILDREN: $PHP_FPM_MAX_CHILDREN"
+    php-fpm -R -F &
+    FPM_PID=$!
+    nginx -g 'daemon off;' &
+    NGINX_PID=$!
+
+    # Pass Railway's stop signal on to both, and if either one dies, stop the
+    # container so Railway restarts it instead of serving 502s.
+    trap 'kill -TERM "$FPM_PID" "$NGINX_PID" 2>/dev/null; wait' TERM INT
+    wait -n "$FPM_PID" "$NGINX_PID"
+    STATUS=$?
+    echo "A web server process exited (status $STATUS); stopping the container."
+    kill -TERM "$FPM_PID" "$NGINX_PID" 2>/dev/null
+    wait
+    exit "$STATUS"
     ;;
 
   queue)

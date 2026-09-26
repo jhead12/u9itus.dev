@@ -1,0 +1,77 @@
+# nginx in front of php-fpm for the web role. wait-for-db.sh fills in
+# ${PORT} and writes this to /etc/nginx/nginx.conf at startup.
+# Workers run as the Alpine package's nginx user, which owns the upload temp
+# dir (/var/lib/nginx/tmp); the default (nobody) can't buffer large uploads.
+user nginx;
+worker_processes auto;
+pid /run/nginx/nginx.pid;
+error_log /dev/stderr warn;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log /dev/stdout combined;
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+    server_tokens off;
+
+    # Matches upload_max_filesize / post_max_size in uploads.ini.
+    client_max_body_size 1050m;
+
+    # Compress text responses. Railway's edge proxies every request, so
+    # gzip_proxied must be "any" or nothing is compressed.
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript
+               application/json application/geo+json application/xml application/rss+xml
+               image/svg+xml;
+
+    server {
+        listen ${PORT} default_server;
+        root /var/www/html/public;
+        index index.php;
+        charset utf-8;
+
+        # Vite output is content-hashed: safe to cache for a year.
+        location /build/ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            access_log off;
+            try_files $uri =404;
+        }
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location = /favicon.ico { access_log off; log_not_found off; }
+        location = /robots.txt  { access_log off; log_not_found off; }
+
+        location ~ \.php$ {
+            try_files $uri =404;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            include /etc/nginx/fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+            fastcgi_param DOCUMENT_ROOT $realpath_root;
+            # Long-running requests (uploads, transcoding kick-off) — matches
+            # request_terminate_timeout in the php-fpm pool.
+            fastcgi_read_timeout 300s;
+            fastcgi_buffers 16 32k;
+            fastcgi_buffer_size 64k;
+        }
+
+        location ~ /\.(?!well-known) {
+            deny all;
+        }
+    }
+}
