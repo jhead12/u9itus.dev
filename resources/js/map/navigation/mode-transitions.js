@@ -27,7 +27,8 @@ import { initDistrictConfig } from '../api/district-config.js';
 import { applyPopulationDensity } from '../ui/layers-panel.js';
 import { trackEvent } from '../api/interaction.js';
 import { updateBreadcrumb } from '../ui/breadcrumb.js';
-import { openInfoPanel } from '../ui/info-panel.js';
+import { openInfoPanel, closeInfoPanel } from '../ui/info-panel.js';
+import { recordLocation } from './history.js';
 import { openRegionPanel } from '../ui/panel-region.js';
 
 /* ── Colour helpers ── */
@@ -85,10 +86,10 @@ export function enterOverviewMode() {
     setStateData(null);
     setMapMode('overview'); setActiveRegion(null); setActiveState(null); setSelectedState(null);
     clearOpenDistrict();
+    recordLocation({ level: 'overview' });
     document.getElementById('info-panel').dataset.view = 'overview';
     clearDim(); clearDistricts(); clearAllOverlays(); closePolDrawer();
-    document.getElementById('info-panel').classList.remove('open');
-    resizeRenderer();
+    closeInfoPanel();
     document.getElementById('btn-back').style.display = 'none';
     document.getElementById('hint').innerHTML = 'Scroll / pinch to zoom &nbsp;·&nbsp; ↑↓ tilt &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; Click a state';
     for (const m of stateMeshes) {
@@ -105,8 +106,6 @@ export function enterOverviewMode() {
     if (overviewBallotEl) overviewBallotEl.innerHTML = '';
     const overviewStatsEl = document.getElementById('panel-stats');
     if (overviewStatsEl) overviewStatsEl.innerHTML = '';
-    const overviewTopicsEl = document.getElementById('panel-topics');
-    if (overviewTopicsEl) overviewTopicsEl.innerHTML = '';
     clearDistrictsPanel();
 }
 
@@ -115,14 +114,13 @@ export function enterRegionMode(regionName, region) {
     setStateData(null);
     setMapMode('region'); setActiveRegion(regionName); setActiveState(null); setSelectedState(null);
     clearOpenDistrict();
+    recordLocation({ level: 'region', region: regionName });
     document.getElementById('info-panel').dataset.view = 'region';
     clearDistricts(); clearAllOverlays(); closePolDrawer();
     const regionBallotEl = document.getElementById('panel-ballot-measures');
     if (regionBallotEl) regionBallotEl.innerHTML = '';
     const regionStatsEl = document.getElementById('panel-stats');
     if (regionStatsEl) regionStatsEl.innerHTML = '';
-    const regionTopicsEl = document.getElementById('panel-topics');
-    if (regionTopicsEl) regionTopicsEl.innerHTML = '';
     clearDistrictsPanel();
     openRegionPanel(regionName, region);
     resizeRenderer();
@@ -224,6 +222,7 @@ export async function enterStateMode(stateName, regionName, region) {
     const requestId = nextRequestId();
     setMapMode('state'); setActiveRegion(regionName); setActiveState(stateName); setSelectedState(stateName);
     clearOpenDistrict();
+    recordLocation({ level: 'state', region: regionName, state: stateName });
     document.getElementById('info-panel').dataset.view = 'state';
     // Update the breadcrumb immediately, not just at the end of this function:
     // everything below is a chain of awaited network calls, and if one throws
@@ -264,11 +263,12 @@ export async function enterStateMode(stateName, regionName, region) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="animation:spin 1s linear infinite;color:${region?.hex || '#6366f1'};">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
         </svg>&nbsp;Loading offices…</div>`;
-    for (const id of ['panel-ballot-measures', 'panel-stats', 'panel-topics', 'panel-running-candidates']) {
+    for (const id of ['panel-ballot-measures', 'panel-stats', 'panel-running-candidates']) {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '';
     }
-    openInfoPanel();
+    // Entering a state is about exploring its map: keep the sheet to its header.
+    openInfoPanel({ sheet: 'minimized' });
 
     document.getElementById('panel-state').textContent = stateName;
     const badge = document.getElementById('panel-badge');

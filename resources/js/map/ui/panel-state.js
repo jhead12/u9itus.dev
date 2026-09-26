@@ -354,50 +354,6 @@ export function renderStateStatsSection(data, color) {
     </div>`;
 }
 
-/**
- * Groups candidates across every office (statewide + House) by the issue
- * topic chips already attached to each candidate (see topicChipsHtml) —
- * self-declared or inferred from news/viral-moment/Vote Smart signals. A
- * candidate tagged with multiple topics appears under each one. Renders
- * nothing when no candidate in the state carries any topic badge, so this
- * section doesn't show up as a permanently-empty box on sparse states.
- */
-export function renderCandidatesByTopicSection(offices, color) {
-    const byTopic = new Map();
-    for (const g of (offices || [])) {
-        for (const c of (g.candidates || [])) {
-            for (const b of (c.badges || [])) {
-                if (!b?.name) continue;
-                if (!byTopic.has(b.name)) byTopic.set(b.name, { badge: b, candidates: [] });
-                byTopic.get(b.name).candidates.push({ ...c, office: g.office });
-            }
-        }
-    }
-    if (!byTopic.size) return '';
-
-    const topics = [...byTopic.values()].sort((a, b) => b.candidates.length - a.candidates.length);
-    const body = topics.map(({ badge, candidates }) => {
-        const topicColor = badge.color || color;
-        const icon = badge.icon ? `${escapeHtml(badge.icon)}&nbsp;` : '';
-        return `<div style="margin-bottom:12px;">
-            <p style="color:${topicColor};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px;">${icon}${escapeHtml(badge.name)}</p>
-            ${candidates.map(c => renderCandidate(c, color)).join('')}
-        </div>`;
-    }).join('');
-
-    return `<div class="office-section collapsed">
-        <div class="office-title"
-             style="background:${color}18;border-left:3px solid ${color};color:${color};"
-             onclick="this.closest('.office-section').classList.toggle('collapsed')"
-             role="button" aria-expanded="false" tabindex="0"
-             onkeydown="if(event.key==='Enter'||event.key===' ')this.click()">
-            <span>🏷️&nbsp;Candidates by Topic</span>
-            <span class="chevron">▾</span>
-        </div>
-        <div class="office-body">${body}</div>
-    </div>`;
-}
-
 /** Nonpartisan polling-place lookup — linked out directly rather than looked
  * up in-panel, since Google Civic's own coverage is inconsistent outside an
  * active-election window and vote.org's tool is more reliable either way. */
@@ -522,12 +478,9 @@ export async function openStatePanel(stateName, regionName, region, panelData = 
     // "Running Candidates" rollup — every running candidate in the state
     // (federal + statewide + local) in one filterable list. Lives outside
     // #panel-candidates so it stays put when drilling into a district,
-    // same as the stats / topics / ballot-measure sections.
+    // same as the stats / ballot-measure sections.
     const runningEl = document.getElementById('panel-running-candidates');
     if (runningEl) runningEl.innerHTML = renderRunningCandidatesSection(data, color);
-
-    const topicsEl = document.getElementById('panel-topics');
-    if (topicsEl) topicsEl.innerHTML = renderCandidatesByTopicSection(offices, color);
 
     const ballotEl = document.getElementById('panel-ballot-measures');
     if (ballotEl) ballotEl.innerHTML = renderBallotMeasuresSection(data?.ballot_measures ?? [], color);

@@ -57,6 +57,14 @@ test.describe('map (desktop)', () => {
         const regions = legend.getByRole('button', { name: 'Regions', exact: true });
         const party = legend.getByRole('button', { name: 'Party control', exact: true });
 
+        // The legend starts collapsed so the map opens uncluttered; its header button expands it.
+        const header = page.locator('#legend-toggle');
+        await expect(legend).toHaveClass(/legend-collapsed/);
+        await expect(header).toHaveAttribute('aria-expanded', 'false');
+        await expect(party).toBeHidden();
+        await header.click();
+        await expect(header).toHaveAttribute('aria-expanded', 'true');
+
         await expect(regions).toHaveAttribute('aria-pressed', 'true');
         await expect(party).toHaveAttribute('aria-pressed', 'false');
         await expect(page.locator('#legend-title')).toHaveText('Regions');
@@ -77,6 +85,7 @@ test.describe('map (desktop)', () => {
 
     test('the color mode switch stays reachable in region view and applies there', async ({ page }) => {
         await openMap(page);
+        await page.locator('#legend-toggle').click();
         await page.locator('#legend .legend-row', { hasText: 'Northeast' }).click();
         await expect(page.locator('#panel-state')).toContainText('Northeast Region');
 
@@ -252,6 +261,90 @@ test.describe('map (mobile)', () => {
         await expect(hint).toHaveClass(/visible/, { timeout: 5000 });
         const [h, l] = await Promise.all([hint.boundingBox(), page.locator('#legend').boundingBox()]);
         expect(h!.y).toBeGreaterThan(l!.y + l!.height);
+    });
+
+    test('selecting a state keeps the sheet minimized so the map stays in view', async ({ page }) => {
+        await openMap(page);
+        await selectState(page, 'Ohio');
+
+        const panel = page.locator('#info-panel');
+        await expect(panel).toHaveClass(/open/);
+        await expect(panel).toHaveClass(/collapsed/);
+        // The handle says what it reveals, and focus lands on the state's name for screen readers.
+        const handle = page.locator('#panel-drag-handle');
+        await expect(handle).toHaveAttribute('aria-expanded', 'false');
+        await expect(handle).toHaveAttribute('aria-label', /Show details/);
+        await expect(page.locator('#panel-state')).toBeFocused();
+        await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThan(140);
+
+        // Screen-reader double-tap arrives as a plain click and opens the sheet.
+        await handle.evaluate((el) => el.click());
+        await expect(panel).not.toHaveClass(/collapsed/);
+        await expect(page.locator('#panel-districts .dist-row').first()).toBeVisible();
+    });
+
+    test("the phone's back gesture steps back one map level at a time", async ({ page }) => {
+        await openMap(page);
+        await page.locator('#legend-toggle').click();
+        await page.locator('#legend .legend-row', { hasText: 'Midwest' }).click();
+        await expect(page).toHaveURL(/\?region=Midwest$/);
+        await selectState(page, 'Ohio');
+        await expect(page).toHaveURL(/\?state=OH$/);
+        await page.locator('#panel-drag-handle').evaluate((el) => el.click());
+        await page.locator('#panel-districts .dist-row').first().click();
+        await expect(page).toHaveURL(/\?state=OH&district=\d+$/);
+
+        const current = page.locator('#breadcrumb [aria-current]');
+        await page.goBack();
+        await expect(current).toHaveText('Ohio');
+        await expect(page).toHaveURL(/\?state=OH$/);
+        await page.goBack();
+        await expect(current).toHaveText('Midwest');
+        await page.goBack();
+        await expect(current).toHaveText('Overview');
+        await expect(page.locator('#info-panel')).not.toHaveClass(/open/);
+    });
+
+    test('breadcrumb steps are labeled buttons with room to tap, and closing a district is a step Back can undo', async ({ page }) => {
+        await page.goto('/map?state=OH&district=4');
+        const current = page.locator('#breadcrumb [aria-current]');
+        await expect(current).toHaveText('District 4', { timeout: 20000 });
+        // A shared link keeps its own page title until the visitor moves.
+        const sharedTitle = await page.title();
+
+        const ohio = page.locator('#breadcrumb').getByRole('button', { name: 'Ohio' });
+        const box = await ohio.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(32);
+        // "Overview" is dropped at four steps on small phones so Help stays on screen.
+        const help = await page.locator('#map-help-badge').boundingBox();
+        expect(help!.x + help!.width).toBeLessThanOrEqual(390);
+
+        await page.locator('#panel-close').click();
+        await expect(current).toHaveText('Ohio');
+        await expect(page).toHaveURL(/\?state=OH$/);
+        expect(await page.title()).not.toBe(sharedTitle);
+        await page.goBack();
+        await expect(current).toHaveText('District 4');
+        await expect(page.locator('#info-panel')).toHaveClass(/open/);
+
+        await ohio.click();
+        await expect(current).toHaveText('Ohio');
+    });
+
+    test('3D view lives in the menu, not the breadcrumb bar; search closes with a Cancel button', async ({ page }) => {
+        await openMap(page);
+        await expect(page.locator('#btn-3d')).toBeHidden();
+
+        await page.locator('#btn-search').click();
+        const cancel = page.getByRole('button', { name: 'Close search' });
+        await expect(cancel).toBeVisible();
+        await expect(cancel.getByText('Cancel')).toBeVisible();
+        await expect(cancel.getByText('esc')).toBeHidden();
+        const box = await cancel.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        await cancel.click();
+        await expect(page.locator('#search-overlay')).not.toHaveClass(/open/);
+        await expect(page.locator('#btn-search')).toBeFocused();
     });
 });
 
@@ -812,21 +905,22 @@ test.describe('find your district and the bottom sheet (mobile)', () => {
         await expect(page.locator('#panel-state')).toContainText('District 3', { timeout: 15000 });
 
         const panel = page.locator('#info-panel');
-        const handle = page.getByRole('button', { name: /Resize panel/ });
+        const handle = page.locator('#panel-drag-handle');
         await expect(panel).toHaveClass(/open/);
         await expect(page.locator('#panel-candidates .snap-title')).toHaveText(['Your representative', 'Candidates & races', 'Election dates & polling', 'Ballot measures & profiles']);
-        // Bottom sheet: pinned to the bottom edge, about 40% of the screen at peek.
-        const peek = await panel.boundingBox();
-        expect(peek!.y + peek!.height).toBeGreaterThan(770);
-        expect(peek!.height).toBeLessThan(400);
-
-        await handle.focus();
-        await page.keyboard.press('ArrowUp');
+        // A selected district opens the sheet full so its data is featured.
         await expect(panel).toHaveClass(/expanded/);
         // The sheet animates between heights, so wait for it to settle.
-        await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(peek!.height + 100);
+        await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(500);
 
+        // Peek: pinned to the bottom edge, about 40% of the screen.
+        await handle.focus();
         await page.keyboard.press('ArrowDown');
+        await expect(panel).not.toHaveClass(/expanded/);
+        await expect.poll(async () => (await panel.boundingBox())!.height).toBeLessThan(400);
+        const peek = await panel.boundingBox();
+        expect(peek!.y + peek!.height).toBeGreaterThan(770);
+
         await page.keyboard.press('ArrowDown');
         await expect(panel).toHaveClass(/collapsed/);
         await expect(handle).toHaveAttribute('aria-expanded', 'false');

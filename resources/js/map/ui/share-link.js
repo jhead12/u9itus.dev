@@ -1,6 +1,6 @@
 /**
- * District share links — building them, sharing them, and keeping the
- * address bar in step with the open district.
+ * District share links — building them and sharing them. The address bar
+ * itself is kept in step by navigation/history.js.
  *
  * Every URL here uses the same `?state=&district=&slug=` params that
  * bootDeepLink / window.__mapGoTo (navigation/deep-link.js) read on load, so
@@ -9,8 +9,6 @@
 import { trackEvent } from '../api/interaction.js';
 import { showToast } from './location-button.js';
 import { activeState } from '../state/map-state.js';
-
-const DEEP_LINK_PARAMS = ['state', 'district', 'slug'];
 
 /**
  * Absolute share URL for a district. The viewer's referral code
@@ -68,21 +66,4 @@ export function createShareButton(url, label) {
         shareLink(url, label);
     });
     return btn;
-}
-
-/**
- * Reflect the open district in the address bar (replaceState, so the back
- * button isn't flooded with one entry per district click). Pass no args to
- * strip the deep-link params when the panel closes; unrelated params such
- * as `ref` are left alone.
- */
-export function syncDistrictUrl(stateAbbr = null, districtNum = null) {
-    if (!window.history?.replaceState) return;
-    const url = new URL(window.location.href);
-    DEEP_LINK_PARAMS.forEach(p => url.searchParams.delete(p));
-    if (stateAbbr) {
-        url.searchParams.set('state', stateAbbr);
-        if (districtNum) url.searchParams.set('district', String(districtNum));
-    }
-    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url);
 }

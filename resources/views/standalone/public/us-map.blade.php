@@ -84,8 +84,7 @@
 <div id="map-canvas-region"
      tabindex="0"
      role="application"
-     aria-label="Interactive U.S. map. Use arrow keys to tilt, + and - to zoom, Enter to search for a state, S for keyboard help."
-     aria-description="Use arrow keys to tilt, + and - to zoom, Enter to open search."></div>
+     aria-label="Interactive U.S. map. To choose a state or district, use Search or Find my district. With a keyboard: Enter opens search, arrow keys tilt, + and - zoom, S shows shortcuts."></div>
 <div id="kb-focus-ring" aria-hidden="true"></div>
 
 {{-- Keyboard shortcut badge is now rendered inside #breadcrumb-bar --}}
@@ -97,9 +96,10 @@
     <p style="color:#94a3b8; font-size:13px; margin-top:14px;">Loading map data…</p>
 </div>
 
-<div id="map-container" style="position:fixed; inset:0;"></div>
+{{-- Visual only; #map-canvas-region is the accessible stand-in for the map. --}}
+<div id="map-container" style="position:fixed; inset:0;" aria-hidden="true"></div>
 
-<div id="top-bar">
+<header id="top-bar">
     <div style="display:flex; align-items:center; gap:12px;">
         <a href="{{ url('/') }}">U9itus</a>
         <span class="sep">|</span>
@@ -333,7 +333,7 @@
             </svg>
         </button>
     </div>
-</div>
+</header>
 
 <!-- Search Palette -->
 <div id="search-overlay" role="dialog" aria-modal="true" aria-label="Search states, districts, and candidates">
@@ -342,10 +342,12 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input id="search-input" type="text" placeholder="Search state, district, or candidate — e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
-            <span id="search-kbd">esc</span>
+            <input id="search-input" type="text" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" aria-label="Search states, districts, and candidates" placeholder="Search state, district, or candidate — e.g. &quot;California&quot;, &quot;CA-38&quot;, &quot;Elizabeth Warren&quot;" autocomplete="off" spellcheck="false">
+            <button type="button" id="search-kbd" aria-label="Close search">
+                <span class="search-close-key">esc</span><span class="search-close-text">Cancel</span>
+            </button>
         </div>
-        <div id="search-results" role="listbox"></div>
+        <div id="search-results" role="listbox" aria-label="Search results"></div>
         <div id="search-empty">🔍 No results for that state, district, or politician</div>
         <div id="search-footer">
             <span><kbd>↵</kbd> select</span>
@@ -396,7 +398,7 @@
 <div id="map-toast" class="map-toast" role="status" aria-live="polite"></div>
 
 <!-- Politician profile drawer -->
-<div id="pol-drawer" role="dialog" aria-modal="true" aria-labelledby="pol-drawer-name" hidden>
+<div id="pol-drawer" role="dialog" aria-modal="true" aria-labelledby="pol-drawer-name" aria-label="Politician profile" hidden>
     <button id="pol-drawer-close" aria-label="Close politician profile">✕</button>
     <div class="pol-hero" id="pol-hero"><!-- filled by JS --></div>
     <nav class="pol-tabs" role="tablist" aria-label="Politician information tabs">
@@ -417,9 +419,9 @@
     Loading all 435 congressional districts…
 </div>
 
-<div id="breadcrumb-bar">
+<nav id="breadcrumb-bar" aria-label="Map location">
     <div style="display:flex; align-items:center; gap:8px;">
-        <div id="breadcrumb"><span class="bc-item bc-active">Overview</span></div>
+        <div id="breadcrumb"><ol class="bc-list"><li><span class="bc-item bc-active" aria-current="location">Overview</span></li></ol></div>
         {{-- Help: tap-to-toggle (works on mobile, unlike hover). Holds the short
              "how to use" text plus the entry points to the full tour and the
              keyboard shortcuts. --}}
@@ -450,17 +452,19 @@
             <kbd>S</kbd> Shortcuts
         </button>
     </div>
-</div>
+</nav>
 
 <div id="tooltip"></div>
 <div id="district-tooltip"></div>
 
-<div id="legend">
-    <h3 role="button" tabindex="0" style="cursor:pointer;user-select:none;"
-        onclick="this.closest('#legend').classList.toggle('legend-collapsed')"
-        onkeydown="if(event.key==='Enter'||event.key===' ')this.click()"
-        title="Tap to show/hide">
-        <span id="legend-title">Regions</span> <span id="legend-toggle-icon" style="font-size:9px;opacity:.6;">▾</span>
+{{-- Starts collapsed so the map opens uncluttered; the header expands it. --}}
+<div id="legend" class="legend-collapsed">
+    <h3>
+        <button type="button" id="legend-toggle" aria-expanded="false" aria-controls="legend-mode legend-note legend-items"
+                onclick="this.setAttribute('aria-expanded',String(!this.closest('#legend').classList.toggle('legend-collapsed')))"
+                title="Show or hide the map key">
+            <span class="sr-only">Map key: </span><span id="legend-title">Regions</span> <span id="legend-toggle-icon" aria-hidden="true">▾</span>
+        </button>
     </h3>
     {{-- Which colors are on the map right now. Regions is the default; Party
          control colors states by their governor's party. --}}
@@ -498,14 +502,14 @@
     </div>
 </div>
 
-<div id="info-panel">
+<div id="info-panel" role="region" aria-labelledby="panel-state">
     {{-- Mobile bottom-sheet handle. Tap or Enter/Space toggles full height; drag or
          ArrowUp/ArrowDown moves between minimized, peek and full (ui/info-panel.js). --}}
     <div class="panel-drag-handle" id="panel-drag-handle" role="button" tabindex="0"
          aria-label="Resize panel: drag or press up and down arrows" aria-controls="info-panel" aria-expanded="true"></div>
     <div id="panel-header">
         <div>
-            <h2 id="panel-state" style="color:#e2e8f0; font-size:16px; font-weight:700; margin:0 0 4px; line-height:1.25;"></h2>
+            <h2 id="panel-state" tabindex="-1" style="color:#e2e8f0; font-size:16px; font-weight:700; margin:0 0 4px; line-height:1.25;"></h2>
             <span id="panel-badge" style="display:inline-block; padding:2px 10px; border-radius:999px; font-size:10px; font-weight:600;"></span>
         </div>
         <button id="panel-close" title="Close panel" aria-label="Close panel">✕</button>
@@ -532,7 +536,6 @@
             Loading candidates…
         </div>
     </div>
-    <div id="panel-topics"></div>
     <div id="panel-ballot-measures"></div>
     <div id="panel-businesses" hidden></div>
     {{-- Other states in the region: collapsed and last, so it never pushes the
