@@ -18,6 +18,7 @@ use App\Models\PoliticianPage;
 use App\Models\PoliticianTopic;
 use App\Models\StateElectionDate;
 use App\Models\VoterWatchReport;
+use App\Services\AreaCodeDistrictLookupService;
 use App\Services\BallotpediaService;
 use App\Services\CongressGovService;
 use App\Services\DistrictLookupService;
@@ -64,6 +65,7 @@ class PublicProfileController extends Controller
         $address = (string) $request->query('address', '');
         $lookupResult = null;
         $zipDistricts = [];
+        $areaCodeCities = [];
         $candidates = collect();
         $runningCandidates = collect();
         $topContenders = collect();
@@ -81,7 +83,9 @@ class PublicProfileController extends Controller
                 $error = 'Please enter a valid street address.';
             } else {
                 $lookupService = app(DistrictLookupService::class);
-                if ($this->isZipOnlyInput($address)) {
+                if ($this->isAreaCodeInput($address)) {
+                    $areaCodeCities = app(AreaCodeDistrictLookupService::class)->citiesForAreaCode($address);
+                } elseif ($this->isZipOnlyInput($address)) {
                     $zipDistricts = app(ZipDistrictLookupService::class)->districtsForZip($address);
                     if (count($zipDistricts) === 1 && $zipDistricts[0]['source'] !== 'u9itus_records') {
                         $lookupResult = $zipDistricts[0] + ['matched_address' => trim($address)];
@@ -90,7 +94,7 @@ class PublicProfileController extends Controller
                     $lookupResult = $lookupService->lookup($address);
                 }
 
-                if (! $lookupResult && $zipDistricts === []) {
+                if (! $lookupResult && $zipDistricts === [] && $areaCodeCities === []) {
                     $error = $this->unresolvedLookupMessage($address);
                 } elseif ($lookupResult) {
                     $lookupState = strtoupper((string) ($lookupResult['state'] ?? ''));
@@ -165,7 +169,11 @@ class PublicProfileController extends Controller
                 $this->recordDistrictLookupSearch(
                     request: $request,
                     address: $address,
-                    lookupResult: $lookupResult ?? ($zipDistricts !== [] ? ['matched_address' => trim($address), 'source' => $zipDistricts[0]['source'], 'districts' => $zipDistricts] : null),
+                    lookupResult: $lookupResult ?? match (true) {
+                        $zipDistricts !== [] => ['matched_address' => trim($address), 'source' => $zipDistricts[0]['source'], 'districts' => $zipDistricts],
+                        $areaCodeCities !== [] => ['matched_address' => trim($address), 'source' => 'area_code', 'cities_count' => count($areaCodeCities)],
+                        default => null,
+                    },
                     error: $error,
                     discoveredOfficialsCount: $discoveredOfficials->count(),
                     voterInfo: $voterInfo,
@@ -177,6 +185,8 @@ class PublicProfileController extends Controller
             'address' => $address,
             'lookupResult' => $lookupResult,
             'zipDistricts' => $zipDistricts,
+            'areaCode' => AreaCodeDistrictLookupService::normalizeAreaCode($address),
+            'areaCodeCities' => $areaCodeCities,
             'isZipLookup' => $this->isZipOnlyInput($address),
             'zipVotingLocations' => $this->isZipOnlyInput($address)
                 ? app(ZipVotingLocationService::class)->forZip($address, $voterInfo) : [],
@@ -402,11 +412,20 @@ class PublicProfileController extends Controller
 
     protected function unresolvedLookupMessage(string $address): string
     {
+        if ($this->isAreaCodeInput($address)) {
+            return 'We don\'t have city listings for area code '.AreaCodeDistrictLookupService::normalizeAreaCode($address).' yet. Enter your ZIP code or full street address instead.';
+        }
+
         if ($this->isZipOnlyInput($address)) {
             return 'We could not load districts for this ZIP code right now. Check the ZIP, try again, or enter your full street address to find your exact district.';
         }
 
         return 'We could not resolve that address. Try including street, city, state, and ZIP.';
+    }
+
+    protected function isAreaCodeInput(string $address): bool
+    {
+        return AreaCodeDistrictLookupService::normalizeAreaCode($address) !== null;
     }
 
     protected function isZipOnlyInput(string $address): bool

@@ -202,6 +202,13 @@ Schedule::command('geo:sync-zip-districts')
     ->monthlyOn(1, '07:30')
     ->withoutOverlapping();
 
+// Area code → city → congressional district (libphonenumber + Census place /
+// county-subdivision files) — lets /district-lookup list the cities an area
+// code serves so the voter can pick theirs. Monthly, alongside the ZIP sync.
+Schedule::command('geo:sync-area-code-districts')
+    ->monthlyOn(1, '07:45')
+    ->withoutOverlapping();
+
 // Weekly politician lifecycle reconciliation — marks seated/retired/lost/running.
 // Runs every Sunday at 04:00 UTC, after the candidate sync (02:00 UTC).
 // After a general election, trigger manually with --election-date=YYYY-MM-DD.
