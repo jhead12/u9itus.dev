@@ -82,7 +82,9 @@ test('glossary page is public and anchors every office; comparisons link to it',
     foreach (array_keys(\App\Support\OfficeGlossary::ENTRIES) as $slug) $response->assertSee('id="'.$slug.'"', false);
     expect(\App\Support\OfficeGlossary::statewideRoles()['Governor'])->toStartWith('The Governor is the chief executive of the state.')
         ->and(\App\Support\OfficeGlossary::statewideRoles()['Governor'])->not->toContain('all executive')
-        ->and(array_keys(\App\Support\OfficeGlossary::statewideRoles()))->toBe(['U.S. Senators', 'Governor', 'Lieutenant Governor', 'Attorney General', 'State Treasurer', 'State Controller', 'Secretary of State', 'Other Statewide']);
+        ->and(array_keys(\App\Support\OfficeGlossary::statewideRoles()))->toBe(['U.S. Senators', 'Governor', 'Lieutenant Governor', 'Attorney General', 'State Treasurer', 'State Controller', 'Secretary of State',
+            'Superintendent of Public Instruction', 'Insurance Commissioner', 'State Auditor', 'Agriculture Commissioner', 'Labor Commissioner',
+            'Land Commissioner', 'Board of Equalization', 'State Legislature', 'Other Statewide']);
 
     $p = Politician::factory()->create(['full_name' => 'Jamie Carter', 'state' => 'CA', 'district' => 'CA-03', 'political_office' => 'U.S. Representative', 'governance_level' => 'Federal', 'term_status' => 'running', 'is_running_candidate' => true, 'page_published' => true, 'is_active' => true]);
     $this->getJson('/api/v1/map/candidate-comparison?'.http_build_query(['state' => 'CA', 'id' => $p->id, 'full_name' => $p->full_name, 'context' => 'research']))

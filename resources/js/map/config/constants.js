@@ -120,6 +120,15 @@ export const OFFICE_ROLES = {
     'State Treasurer':    'Manages the state\'s financial assets, public fund investments, and debt.',
     'State Controller':   'Audits state spending and oversees public-fund accounting.',
     'Secretary of State': 'Manages elections, certifies results, and maintains official state records.',
+    'Superintendent of Public Instruction': 'Leads the state education agency, which oversees public K-12 schools: standards, school funding, and teacher licensing. Elected in some states, appointed in others.',
+    'Insurance Commissioner': 'Regulates insurance companies in the state: licenses insurers and agents, reviews rates in many states, and handles consumer complaints. Elected in some states, appointed in others.',
+    'State Auditor':      'Reviews how state agencies spend public money and reports on waste, fraud, or mismanagement.',
+    'Agriculture Commissioner': 'Leads the state agriculture department, which commonly handles food-safety and farm inspections, pest and animal-disease control, and weights and measures.',
+    'Labor Commissioner': 'Leads the state labor department, which commonly enforces wage-and-hour and workplace laws.',
+    'Land Commissioner':  'Manages state-owned public lands and their leases (grazing, mining, energy). That revenue often helps fund public schools.',
+    'Board of Equalization': 'Oversees certain state taxes and may hear some tax appeals. Duties vary widely by state.',
+    'State Legislature':  'State senators and representatives or assembly members write state laws and pass the budget. Each represents one district, not the whole state.',
+    'Other Statewide':    'Statewide offices listed without a title in our records. Duties vary by state.',
 };
 
 export const CITY_OFFICE_ROLES = {

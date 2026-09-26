@@ -361,7 +361,8 @@ class MapStateCandidatesController
         foreach (self::STATEWIDE_OFFICES as $office) {
             $grouped[$office] = ['office' => $office, 'candidates' => []];
         }
-        $grouped['Other Statewide'] = ['office' => 'Other Statewide', 'candidates' => []];
+        // Any other statewide office gets a group named for its own title (created
+        // on first use below), so the panel never hides jobs behind a catch-all.
 
         // Global dedup set: prevents the same person appearing in multiple buckets
         // (e.g. once as a platform Politician and again as an ECR with a slightly
@@ -382,6 +383,7 @@ class MapStateCandidatesController
             }
 
             $seenGlobal[strtolower($pol->full_name)] = true;
+            $grouped[$canonical] ??= ['office' => $canonical, 'candidates' => []];
             $grouped[$canonical]['candidates'][] = $this->formatPlatformCandidate($pol);
         }
 
@@ -470,7 +472,7 @@ class MapStateCandidatesController
 
             // A state-legislature race is not a statewide office. A discovery row filed under one
             // ("Michigan State Senate") was a headline mix-up about a congressional candidate, and
-            // would otherwise land in "Other Statewide".
+            // would otherwise land in the "State Legislature" group.
             if (
                 $rec->source === ElectionCandidateRecord::DISCOVERY_SOURCE
                 && CandidateCorroboration::officeKind($rec->political_office) === 'legislature'
@@ -520,6 +522,7 @@ class MapStateCandidatesController
             $seenGlobal[$nameLower] = true;
             $profileSlug = $runningProfileSlugs[MapCandidateHygiene::identityKey($recName) . '|' . strtolower($canonical)] ?? null;
             $generalDate = $this->generalDateFor($payload['general_date'] ?? null, $officialGeneral, $quality);
+            $grouped[$canonical] ??= ['office' => $canonical, 'candidates' => []];
             $grouped[$canonical]['candidates'][] = [
                 'source'          => 'scraped',
                 ...DataSourceLabel::stamp($rec),
@@ -583,9 +586,19 @@ class MapStateCandidatesController
         }
         unset($group);
 
-        // Remove empty office groups for cleaner response
+        // Remove empty office groups for cleaner response. The fixed offices keep
+        // their order; named offices follow alphabetically, then the legislature,
+        // then anything with no title at all.
+        $fixed = ['U.S. Senators', ...self::STATEWIDE_OFFICES];
+        $rank = fn (string $office) => match (true) {
+            in_array($office, $fixed, true) => [0, array_search($office, $fixed, true), ''],
+            $office === OfficeCanonicalizer::UNNAMED_STATEWIDE => [3, 0, ''],
+            $office === 'State Legislature' => [2, 0, ''],
+            default => [1, 0, strtolower($office)],
+        };
         $offices = collect($grouped)
             ->filter(fn($g) => count($g['candidates']) > 0)
+            ->sortBy(fn ($g) => $rank($g['office']))
             ->values();
 
         $regionInfo = self::STATE_REGIONS[$state] ?? ['region' => 'Unknown', 'color' => '#64748b'];
@@ -730,6 +743,27 @@ class MapStateCandidatesController
         // Seat 2" candidates) group together instead of listing as unrelated
         // flat cards — same {office, candidates} shape renderOfficeGroup() (JS)
         // already knows how to render with seated/running splitting.
+        // A city profile carries no primary result of its own; its linked candidate
+        // record does. Without it the panel reads every city race as pre-primary and
+        // labels a runoff "Primary Candidates". The latest record this cycle wins.
+        // Its own general date is used, not the state's: many cities vote off-cycle.
+        $cityResults = CandidateIdentityLink::query()
+            ->whereIn('politician_id', $cityOfficials->pluck('id'))
+            ->with('candidateRecord:id,payload,election_date')
+            ->get()
+            ->filter(fn ($link) => $link->candidateRecord !== null
+                && ($link->candidateRecord->election_date === null || $link->candidateRecord->election_date->toDateString() >= $cycleStart))
+            ->sortBy(fn ($link) => $link->candidateRecord->election_date?->toDateString() ?? '')
+            ->mapWithKeys(function ($link) {
+                $payload = $link->candidateRecord->payload ?? [];
+                $generalDate = trim((string) ($payload['general_date'] ?? ''));
+
+                return [$link->politician_id => [
+                    'primary_result' => strtolower(trim((string) ($payload['primary_result'] ?? ''))) ?: null,
+                    'general_date' => $generalDate !== '' ? substr($generalDate, 0, 10) : null,
+                ]];
+            });
+
         $cityOfficialsGrouped = [];
         foreach ($cityOfficials as $pol) {
             $cityKey = $pol->city ?? 'Unknown City';
@@ -767,6 +801,8 @@ class MapStateCandidatesController
                 'bio_excerpt'     => $pol->bio ? Str::limit($pol->bio, 180) : null,
                 'term_end'        => optional($pol->term_ends_on)?->toDateString(),
                 'badges'          => $this->formatBadges($pol),
+                'primary_result'  => $cityResults[$pol->id]['primary_result'] ?? null,
+                'general_date'    => $cityResults[$pol->id]['general_date'] ?? null,
             ];
         }
         // Flatten each city's office-keyed map into a plain list of office groups.
@@ -961,7 +997,7 @@ class MapStateCandidatesController
             return 'U.S. Senators';
         }
 
-        return OfficeCanonicalizer::canonicaliseStatewide($office) ?? 'Other Statewide';
+        return OfficeCanonicalizer::statewideGroup($office);
     }
 
     /**
