@@ -1,7 +1,8 @@
 # U9itus Production Dockerfile for Railway Metal Build
-# Uses PHP CLI since we run php artisan serve (not FPM)
+# Web role: nginx in front of php-fpm with opcache. The fpm image still ships
+# the PHP CLI, so queue/scheduler/reverb and `php artisan ...` are unchanged.
 
-FROM php:8.4-cli-alpine
+FROM php:8.4-fpm-alpine
 
 # Install system dependencies, PHP extensions, and upload limits in one layer.
 RUN apk add --no-cache \
@@ -20,6 +21,7 @@ RUN apk add --no-cache \
     npm \
     mysql-client \
     bash \
+    nginx \
     ffmpeg \
     tesseract-ocr \
     tesseract-ocr-data-eng \
@@ -39,7 +41,8 @@ RUN apk add --no-cache \
         sockets \
         xml \
         xmlwriter \
-        zip && \
+        zip \
+        opcache && \
     mkdir -p /usr/local/etc/php/conf.d && \
     cat > /usr/local/etc/php/conf.d/uploads.ini <<'EOF'
 upload_max_filesize=1024M
@@ -47,6 +50,12 @@ post_max_size=1050M
 memory_limit=512M
 max_file_uploads=20
 EOF
+
+# nginx + php-fpm + opcache config for the web role (see wait-for-db.sh).
+COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
+COPY docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-u9itus.conf
+COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache-u9itus.ini
+RUN mkdir -p /run/nginx
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
