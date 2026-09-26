@@ -33,6 +33,13 @@ function collapsibleSidebarAdmin(): User
     return $user;
 }
 
+// Count the attribute on elements only — the layout's <style> and <script>
+// blocks also mention it in selectors like [data-sidebar-body].
+function sidebarAttributeCount(string $html, string $attribute): int
+{
+    return preg_match_all('/\s'.preg_quote($attribute, '/').'[\s>=]/', $html);
+}
+
 it('renders each politician sidebar section as a collapsible toggle with a matching body', function () {
     $user = collapsibleSidebarPolitician();
 
@@ -42,7 +49,7 @@ it('renders each politician sidebar section as a collapsible toggle with a match
         $key = "politician:{$section}";
         expect($html)->toContain('data-sidebar-key="'.$key.'"');
     }
-    expect(substr_count($html, 'data-sidebar-toggle'))->toBe(substr_count($html, 'data-sidebar-body'));
+    expect(sidebarAttributeCount($html, 'data-sidebar-toggle'))->toBe(sidebarAttributeCount($html, 'data-sidebar-body'));
 });
 
 it('renders each citizen sidebar section as a collapsible toggle with a matching body', function () {
@@ -54,7 +61,7 @@ it('renders each citizen sidebar section as a collapsible toggle with a matching
         $key = "citizen:{$section}";
         expect($html)->toContain('data-sidebar-key="'.$key.'"');
     }
-    expect(substr_count($html, 'data-sidebar-toggle'))->toBe(substr_count($html, 'data-sidebar-body'));
+    expect(sidebarAttributeCount($html, 'data-sidebar-toggle'))->toBe(sidebarAttributeCount($html, 'data-sidebar-body'));
 });
 
 it('renders each visible admin sidebar section as a collapsible toggle with a matching body', function () {
@@ -65,7 +72,7 @@ it('renders each visible admin sidebar section as a collapsible toggle with a ma
     foreach (['admin:Overview', 'admin:Accounts', 'admin:Candidates &amp; Data'] as $key) {
         expect($html)->toContain('data-sidebar-key="'.$key.'"');
     }
-    expect(substr_count($html, 'data-sidebar-toggle'))->toBe(substr_count($html, 'data-sidebar-body'));
+    expect(sidebarAttributeCount($html, 'data-sidebar-toggle'))->toBe(sidebarAttributeCount($html, 'data-sidebar-body'));
 });
 
 it('does not rely on @apply in the sidebar style block, since it silently no-ops under the Vite build', function () {
