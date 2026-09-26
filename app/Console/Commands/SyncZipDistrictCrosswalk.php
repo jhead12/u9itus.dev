@@ -34,7 +34,7 @@ class SyncZipDistrictCrosswalk extends Command
 
     // FIPS numeric state code → USPS abbreviation. Territories are left out:
     // the map has no district layer for them.
-    private const FIPS_TO_STATE = [
+    public const FIPS_TO_STATE = [
         '01' => 'AL', '02' => 'AK', '04' => 'AZ', '05' => 'AR', '06' => 'CA',
         '08' => 'CO', '09' => 'CT', '10' => 'DE', '11' => 'DC', '12' => 'FL',
         '13' => 'GA', '15' => 'HI', '16' => 'ID', '17' => 'IL', '18' => 'IN',

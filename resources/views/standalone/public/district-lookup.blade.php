@@ -48,7 +48,7 @@
         <section class="mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3">Find Your District</h1>
             <p class="text-slate-400 max-w-2xl">
-                Enter a ZIP code to explore congressional districts in that area, or your home address to find your exact district.
+                Enter a ZIP code or phone area code to explore congressional districts in that area, or your home address to find your exact district.
             </p>
             <p class="text-slate-500 text-sm mt-2">ZIP codes can span several districts. A full street address helps identify which one represents your home.</p>
         </section>
@@ -59,7 +59,7 @@
                     type="text"
                     name="address"
                     value="{{ $address }}"
-                    placeholder="123 Main St, Los Angeles, CA 90012 or 92555"
+                    placeholder="123 Main St, Los Angeles, CA 90012, a ZIP like 92555, or an area code like 213"
                     class="flex-1 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                     required
                     maxlength="255"
@@ -94,6 +94,63 @@
                     @endforeach
                 </div>
             </section>
+        @endif
+
+        @if(!empty($areaCodeCities))
+            <section class="mb-8" aria-labelledby="area-code-cities-title" data-area-code-cities>
+                <h2 id="area-code-cities-title" class="text-2xl font-bold text-white mb-3">Cities in area code {{ $areaCode }}</h2>
+                <p class="text-slate-400 mb-3">Find your city below to see the congressional district(s) it's in. Cities that span more than one district need your street address to confirm which one is yours.</p>
+                <div class="bg-amber-500/10 border border-amber-400/30 rounded-xl px-4 py-3 mb-4 text-sm text-amber-100" role="note">
+                    <p class="font-semibold text-amber-200 mb-1">Don't see your town?</p>
+                    <p>This list is built from phone company records, which name only the main town for each block of phone numbers. Smaller towns, unincorporated communities, and neighborhoods are often listed under a nearby larger city, or not at all. And because people keep their phone numbers when they move, an area code doesn't always match where you vote. For an accurate result, search by <strong>ZIP code</strong> or <strong>full street address</strong> instead.</p>
+                </div>
+                @if(count($areaCodeCities) > 8)
+                    <label for="area-code-city-filter" class="sr-only">Filter cities</label>
+                    <input id="area-code-city-filter" type="search" placeholder="Type your city to filter {{ count($areaCodeCities) }} cities…" autocomplete="off"
+                        class="w-full sm:w-80 mb-4 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" />
+                @endif
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($areaCodeCities as $areaCity)
+                        <article class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-5" data-city-name="{{ strtolower($areaCity['city']) }}">
+                            <h3 class="text-lg font-semibold text-white">{{ $areaCity['city'] }}, {{ $areaCity['state'] }}</h3>
+                            @if(count($areaCity['districts']) > 1)
+                                <p class="text-amber-300/90 text-xs mt-1">Spans {{ count($areaCity['districts']) }} districts. Enter your address to confirm yours.</p>
+                            @endif
+                            <ul class="mt-3 -mx-2 space-y-1">
+                                @foreach($areaCity['districts'] as $areaDistrict)
+                                    <li>
+                                        <a href="{{ route('us.map', ['state' => $areaDistrict['state'], 'district' => $areaDistrict['district_number']]) }}" class="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-800/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 transition">
+                                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">{{ $areaDistrict['district_code'] }}</span>
+                                            <span class="text-slate-500 group-hover:text-slate-300 text-xs flex-1">{{ $areaDistrict['district_label'] }}</span>
+                                            <span class="text-emerald-400 group-hover:text-emerald-300" aria-hidden="true">→</span>
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </article>
+                    @endforeach
+                </div>
+                <p class="text-slate-500 text-sm mt-4 hidden" data-no-city-match>No cities match. Try a nearby larger city, or search by ZIP code or address above.</p>
+            </section>
+            <script>
+                (() => {
+                    const section = document.querySelector('[data-area-code-cities]');
+                    const filter = section?.querySelector('#area-code-city-filter');
+                    if (!filter) return;
+                    const cards = section.querySelectorAll('[data-city-name]');
+                    const empty = section.querySelector('[data-no-city-match]');
+                    filter.addEventListener('input', () => {
+                        const q = filter.value.trim().toLowerCase();
+                        let shown = 0;
+                        cards.forEach(card => {
+                            const match = card.dataset.cityName.includes(q);
+                            card.hidden = !match;
+                            shown += match;
+                        });
+                        empty.classList.toggle('hidden', shown > 0);
+                    });
+                })();
+            </script>
         @endif
 
         @if($isZipLookup)
